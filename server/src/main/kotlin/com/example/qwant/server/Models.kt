@@ -1,0 +1,153 @@
+package com.example.qwant.server
+
+/**
+ * Доменные модели сервера (клиент-серверное приложение из ТЗ кейса
+ * «Мобильное приложение для водителей дизельной техники»).
+ *
+ * Сериализуются в JSON через Gson (см. Routes/JSON в Main.kt).
+ */
+
+/** Тип дизельной техники. */
+object EquipmentType {
+    const val MRG = "MRG" // машина раздачи глинозёма
+    const val MPK = "MPK" // машина пробойки корки
+}
+
+/** Типы заявок. */
+object OrderType {
+    const val OBRABOTKA = "OBRABOTKA" // обработка электролизёра
+    const val PODSYPKA = "PODSYPKA"   // подсыпка (МРГ) — со «светофором» срочности
+    const val REMONT = "REMONT"       // заявка на ремонт из кабины
+}
+
+/** Статусы заявки. */
+object OrderStatus {
+    const val NEW = "NEW"             // новая, ожидает водителя
+    const val ACCEPTED = "ACCEPTED"   // «Взять в работу»
+    const val DONE = "DONE"           // «Выполнено»
+    const val CANCELLED = "CANCELLED"
+}
+
+/** Вид элемента схемы корпуса. */
+object ZoneKind {
+    const val DANGER = "DANGER"       // опасная зона
+    const val DEAD_END = "DEAD_END"   // тупик
+}
+
+/** «Светофор» срочности заявки по МРГ. */
+object Urgency {
+    const val GREEN = "GREEN"   // сразу после принятия
+    const val ORANGE = "ORANGE" // через 10 минут
+    const val RED = "RED"       // через 15 минут
+}
+
+data class Equipment(
+    val id: Int,
+    val name: String,
+    val type: String,
+    val model: String,
+    val motohours: Double,
+    val status: String,
+)
+
+data class Driver(
+    val id: Int,
+    val name: String,
+    val equipmentId: Int?,
+    val equipmentName: String?,
+    val equipmentType: String?,
+)
+
+data class Electrolyzer(
+    val id: Int,
+    val number: Int,
+    val building: String,
+    val row: Int,
+    val position: Int,
+    val half: String,
+    val series: String,
+    val status: String,
+)
+
+/** Геометрия в нормализованных координатах карты (0..1). */
+data class Zone(
+    val id: Int,
+    val kind: String,
+    val label: String,
+    val building: String,
+    val x: Double,
+    val y: Double,
+    val w: Double,
+    val h: Double,
+)
+
+data class Gate(
+    val id: Int,
+    val name: String,
+    val building: String,
+    val x: Double,
+    val y: Double,
+    val isOpen: Boolean,
+)
+
+data class DeviationTag(
+    val id: Int,
+    val label: String,
+)
+
+data class Order(
+    val id: Int,
+    val type: String,
+    val status: String,
+    val description: String,
+    val electrolyzerId: Int?,
+    val electrolyzerNumber: Int?,
+    val building: String?,
+    val row: Int?,
+    val position: Int?,
+    val half: String?,
+    val driverId: Int?,
+    val driverName: String?,
+    val requestedBy: String?,
+    val deviationTagId: Int?,
+    val deviationTagLabel: String?,
+    val comment: String?,
+    val isRepair: Boolean,
+    val motohoursDelta: Double?,
+    val createdAt: String,
+    val createdAtMillis: Long,
+    val acceptedAt: String?,
+    val acceptedAtMillis: Long?,
+    val completedAt: String?,
+    /** Время с момента принятия, в минутах (для светофора). */
+    val elapsedMinutes: Long?,
+    /** "GREEN" | "ORANGE" | "RED" | null — только для активных заявок типа PОDSYPKA. */
+    val urgency: String?,
+)
+
+data class Scheme(
+    val building: String,
+    val rows: Int,
+    val perRow: Int,
+    val halfSize: Int,
+    val electrolyzerCount: Int,
+    val electrolyzers: List<Electrolyzer>,
+    val zones: List<Zone>,
+    val gates: List<Gate>,
+)
+
+data class StatsRow(
+    val equipment: Equipment,
+    val completedOrders: Int,
+    val avgExecutionMinutes: Double?,
+)
+
+data class Stats(
+    val totalMotohours: Double,
+    val byType: Map<String, Double>,
+    val rows: List<StatsRow>,
+    val ordersTotal: Int,
+    val ordersNew: Int,
+    val ordersAccepted: Int,
+    val ordersDone: Int,
+)
