@@ -20,16 +20,6 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import java.time.Instant
 
-/*
- * Сервер приложения «водители дизельной техники» (клиент-серверное решение из ТЗ).
- *
- * Запуск:  ./gradlew -p server run
- * Порт:    PORT (по умолчанию 8080), слушает 0.0.0.0
- * БД:      sqlite3, образная база в памяти (QWANT_DB=путь, чтобы сохранять в файл)
- */
-
-// ------------------------------------------------------------- тела запросов
-
 data class CreateOrderRequest(
     val type: String? = null,
     val electrolyzerId: Int? = null,
@@ -48,7 +38,6 @@ data class CompleteRequest(
 
 data class MotohoursRequest(val delta: Double = 0.0)
 
-// ------------------------------------------------------------------- module
 
 fun Application.module(db: Db) {
     install(ContentNegotiation) { gson { setPrettyPrinting() } }
@@ -94,7 +83,6 @@ fun Application.module(db: Db) {
 
         get("/api/drivers") { call.respond(db.drivers()) }
 
-        // --- электролизёры и схема корпуса ---
         get("/api/electrolyzers") {
             call.respond(db.electrolyzers(call.request.queryParameters["building"]))
         }
@@ -102,7 +90,6 @@ fun Application.module(db: Db) {
             call.respond(db.scheme(call.request.queryParameters["building"] ?: "4"))
         }
 
-        // --- ворота (дистанционное открытие) ---
         get("/api/gates") { call.respond(db.gates()) }
         post("/api/gates/{id}/open") {
             val id = call.parameters["id"]?.toIntOrNull()
@@ -115,13 +102,10 @@ fun Application.module(db: Db) {
             if (g == null) call.respond(HttpStatusCode.NotFound, mapOf("error" to "gate not found")) else call.respond(g)
         }
 
-        // --- быстрые теги отклонений ---
         get("/api/tags") { call.respond(db.tags()) }
 
-        // --- статистика наработки ---
         get("/api/stats") { call.respond(db.stats()) }
 
-        // --- заявки ---
         get("/api/orders") {
             val status = call.request.queryParameters["status"]
             val driverId = call.request.queryParameters["driverId"]?.toIntOrNull()

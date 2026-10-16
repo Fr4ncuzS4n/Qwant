@@ -23,13 +23,10 @@ class Db(
 ) {
     private val conn: Connection = DriverManager.getConnection("jdbc:sqlite:$dbPath")
 
-    /** Номер корпуса (цеха). */
     private val BUILDING = "4"
 
-    /** Электролизёров в одном ряду. */
     val perRow: Int = electrolyzerCount / rows
 
-    /** Размер половины ряда (ряд делится пополам — «подленные пополам»). */
     val halfSize: Int = perRow / 2
 
     init {
@@ -142,7 +139,6 @@ class Db(
     private fun seed() {
         val now = System.currentTimeMillis()
 
-        // --- техника (дизельные машины) ---
         val equipment = listOf(
             Triple("МРГ-1", EquipmentType.MRG, "С8БМ"),
             Triple("МРГ-2", EquipmentType.MRG, "С8БМ(Э)"),
@@ -156,13 +152,11 @@ class Db(
             )
         }
 
-        // --- водители ---
         val drivers = listOf("Иванов А.", "Петров С.", "Сидоров В.", "Кузнецов Д.")
         drivers.forEachIndexed { i, name ->
             exec("INSERT INTO drivers(name, equipment_id) VALUES(?,?)", name, i + 1)
         }
 
-        // --- электролизёры: ряды, каждый делится пополам ---
         val numberToId = HashMap<Int, Int>()
         var number = 1
         for (r in 1..rows) {
@@ -179,17 +173,14 @@ class Db(
             }
         }
 
-        // --- опасные зоны и тупики на схеме корпуса ---
         exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DANGER, "Зона высокой температуры", BUILDING, 0.30, 0.02, 0.14, 0.16)
         exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DANGER, "Проезд техники", BUILDING, 0.62, 0.42, 0.16, 0.14)
         exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DEAD_END, "Тупик (разворот)", BUILDING, 0.01, 0.60, 0.12, 0.16)
         exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DEAD_END, "Тупик у ворот 2", BUILDING, 0.86, 0.78, 0.12, 0.14)
 
-        // --- ворота ---
         exec("INSERT INTO gates(name,building,x,y,is_open) VALUES(?,?,?,?,0)", "Ворота 1 (главные)", BUILDING, 0.18, 0.95)
         exec("INSERT INTO gates(name,building,x,y,is_open) VALUES(?,?,?,?,0)", "Ворота 2", BUILDING, 0.82, 0.95)
 
-        // --- быстрые теги отклонений ---
         listOf(
             "Неисправность узла электролизёра",
             "Засор выгрузного лотка",
@@ -200,25 +191,20 @@ class Db(
             "Прочее",
         ).forEach { exec("INSERT INTO deviation_tags(label) VALUES(?)", it) }
 
-        // --- образцы заявок ---
         fun electrolyzerId(n: Int) = numberToId[n] ?: numberToId.values.first()
 
-        // новая заявка на подсыпку (ждёт водителя, МРГ)
         exec(
             "INSERT INTO orders(type,status,description,electrolyzer_id,requested_by,is_repair,created_at) VALUES(?,?,?,?,?,?,?)",
             OrderType.PODSYPKA, OrderStatus.NEW, "Подсыпка глинозёма", electrolyzerId(125), "Диспетчер", 0, now - 3 * 60_000
         )
-        // заявка в работе, принята 12 минут назад → «светофор» оранжевый
         exec(
             "INSERT INTO orders(type,status,description,electrolyzer_id,driver_id,requested_by,is_repair,created_at,accepted_at) VALUES(?,?,?,?,?,?,?,?,?)",
             OrderType.PODSYPKA, OrderStatus.ACCEPTED, "Подсыпка глинозёма", electrolyzerId(42), 1, "Диспетчер", 0, now - 14 * 60_000, now - 12 * 60_000
         )
-        // заявка на обработку корки в работе
         exec(
             "INSERT INTO orders(type,status,description,electrolyzer_id,driver_id,requested_by,is_repair,created_at,accepted_at) VALUES(?,?,?,?,?,?,?,?,?)",
             OrderType.OBRABOTKA, OrderStatus.ACCEPTED, "Обработка корки", electrolyzerId(77), 3, "Диспетчер", 0, now - 40 * 60_000, now - 7 * 60_000
         )
-        // завершённая заявка на ремонт (из кабины)
         exec(
             "INSERT INTO orders(type,status,description,electrolyzer_id,driver_id,requested_by,deviation_tag_id,comment,is_repair,motohours_delta,created_at,accepted_at,completed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
             OrderType.REMONT, OrderStatus.DONE, "Ремонт выгрузного лотка", electrolyzerId(9), 2, "Водитель Петров С.", 1, "Лоток засорён", 1, 1.5,

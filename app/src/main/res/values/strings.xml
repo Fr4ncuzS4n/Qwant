@@ -1,3 +1,138 @@
 <resources>
     <string name="app_name">Qwant</string>
+
+    <!-- Общие -->
+    <string name="back">Назад</string>
+    <string name="retry">Повторить</string>
+    <string name="refresh">Обновить</string>
+    <string name="loading">Загрузка…</string>
+    <string name="error_prefix">Ошибка: %1$s</string>
+    <string name="error_generic">не удалось выполнить запрос</string>
+    <string name="menu_scheme">Схема</string>
+    <string name="menu_gates">Ворота</string>
+    <string name="menu_stats">Статистика</string>
+
+    <!-- Выбор кабинета -->
+    <string name="role_title">Qwant</string>
+    <string name="role_subtitle">Водители дизельной техники · электролизный цех</string>
+    <string name="role_driver">Водитель</string>
+    <string name="role_driver_desc">Новая заявка — «Взять в работу», по окончании — «Выполнено».</string>
+    <string name="role_dispatcher">Диспетчер</string>
+    <string name="role_dispatcher_desc">Постановка заявок, контроль времени исполнения и статистика наработки.</string>
+    <string name="role_enter">Войти</string>
+    <string name="role_hint">Сервер: ./gradlew -p server run · адрес для эмулятора 10.0.2.2:8080</string>
+    <string name="server_checking">Проверка связи с сервером…</string>
+    <string name="server_available">Сервер доступен</string>
+    <string name="server_unavailable">Сервер недоступен</string>
+
+    <!-- Кабинет водителя -->
+    <string name="driver_select_title">Выбор водителя</string>
+    <string name="driver_select_subtitle">Выберите себя в списке — техника подтянется из базы</string>
+    <string name="driver_no_equipment">Техника не закреплена</string>
+    <string name="driver_equipment_type">Тип техники: %1$s</string>
+    <string name="driver_change">Сменить</string>
+    <string name="driver_cabinet_title">Кабинет водителя</string>
+    <string name="driver_my_order">Моя заявка</string>
+    <string name="driver_no_active_order">Активных заявок нет</string>
+    <string name="driver_new_orders">Новые заявки</string>
+    <string name="driver_no_new_orders">Новых заявок нет</string>
+
+    <!-- Заявки -->
+    <string name="order_id">Заявка №%1$d</string>
+    <string name="order_new_notification">Новая заявка</string>
+    <string name="order_take">Взять в работу</string>
+    <string name="order_complete">Выполнено</string>
+    <string name="order_complete_no_deviation">Выполнено без отклонений</string>
+    <string name="order_deviation_prompt">Что случилось? Выберите причину — без ручного ввода</string>
+    <string name="order_quick_tags">Быстрые теги отклонений</string>
+    <string name="order_motohours_label">Наработка, моточасы</string>
+    <string name="order_type">Тип</string>
+    <string name="order_row">Ряд</string>
+    <string name="order_half">Половина</string>
+    <string name="order_half_value">Половина %1$s</string>
+    <string name="order_driver">Исполнитель</string>
+    <string name="order_requested_by">Заказчик</string>
+    <string name="order_created">Создана</string>
+    <string name="order_accepted">Принята</string>
+    <string name="order_elapsed">В работе: %1$s</string>
+    <string name="order_elapsed_label">Время исполнения</string>
+    <string name="order_deviation">Отклонение</string>
+    <string name="order_no_deviation">не отмечено</string>
+    <string name="order_comment">Комментарий</string>
+    <string name="order_motohours_done">Наработка</string>
+    <string name="order_none">Заявок нет</string>
+    <string name="order_timeline">Ход исполнения</string>
+
+    <!-- Статусы -->
+    <string name="status_new">Новая</string>
+    <string name="status_accepted">В работе</string>
+    <string name="status_done">Выполнена</string>
+    <string name="status_cancelled">Отменена</string>
+
+    <!-- Типы заявок -->
+    <string name="type_obrabotka">Обработка корки</string>
+    <string name="type_podsypka">Подсыпка глинозёма</string>
+    <string name="type_remont">Ремонт</string>
+
+    <!-- Светофор срочности -->
+    <string name="urgency_green">В норме</string>
+    <string name="urgency_orange">Задержка</string>
+    <string name="urgency_red">Просрочено</string>
+    <string name="urgency_minutes">%1$d мин</string>
+
+    <!-- Кабинет диспетчера -->
+    <string name="dispatcher_title">Кабинет диспетчера</string>
+    <string name="dispatcher_subtitle">Заявки корпуса · контроль исполнения</string>
+    <string name="dispatcher_create">Создать заявку</string>
+    <string name="filter_all">Все</string>
+    <string name="filter_new">Новые</string>
+    <string name="filter_accepted">В работе</string>
+    <string name="filter_done">Выполненные</string>
+    <string name="filter_repair">Ремонт</string>
+
+    <!-- Создание заявки -->
+    <string name="create_order_title">Новая заявка</string>
+    <string name="create_order_subtitle">Тип заявки и электролизёр на схеме корпуса</string>
+    <string name="create_order_electrolyzer">Электролизёр на схеме</string>
+    <string name="create_order_row">Ряд</string>
+    <string name="create_order_selected">Выбран электролизёр №%1$d</string>
+    <string name="create_order_select_hint">Выберите электролизёр на схеме</string>
+    <string name="create_order_description">Описание</string>
+    <string name="create_order_requested_by">Заказчик</string>
+    <string name="create_order_submit">Поставить заявку</string>
+
+    <!-- Схема корпуса -->
+    <string name="scheme_title">Схема корпуса</string>
+    <string name="scheme_subtitle">Электролизёры, опасные зоны, тупики и ворота</string>
+    <string name="scheme_selected_title">Выбранный электролизёр</string>
+    <string name="scheme_selected_value">Электролизёр №%1$d · ряд %2$d, половина %3$s · %4$s</string>
+    <string name="scheme_status_ok">Исправен</string>
+    <string name="scheme_status_service">Обслуживание</string>
+    <string name="scheme_legend_title">Обозначения</string>
+    <string name="scheme_legend_danger">Опасная зона</string>
+    <string name="scheme_legend_dead_end">Тупик</string>
+    <string name="scheme_legend_gate_open">Ворота открыты</string>
+    <string name="scheme_summary">Всего электролизёров: %1$d · рядов: %2$d · в половине: %3$d</string>
+    <string name="scheme_gates_title">Ворота корпуса</string>
+
+    <!-- Ворота -->
+    <string name="gates_title">Ворота</string>
+    <string name="gate_hint">Дистанционное открытие ворот при выезде в корпус</string>
+    <string name="gate_open">Открыть</string>
+    <string name="gate_close">Закрыть</string>
+    <string name="gate_opened">Открыты</string>
+    <string name="gate_closed">Закрыты</string>
+    <string name="gate_building">Корпус %1$s</string>
+
+    <!-- Статистика наработки -->
+    <string name="stats_title">Статистика наработки</string>
+    <string name="stats_subtitle">Наработка техники в моточасах и исполнение заявок</string>
+    <string name="stats_total_motohours">Всего моточасов</string>
+    <string name="stats_motohours_label">Наработка</string>
+    <string name="stats_motohours_short">%1$s моточасов</string>
+    <string name="stats_orders_total">Заявки</string>
+    <string name="stats_orders_breakdown">новых: %1$d · в работе: %2$d · выполнено: %3$d</string>
+    <string name="stats_by_equipment">Наработка по технике</string>
+    <string name="stats_completed_orders">Выполнено заявок</string>
+    <string name="stats_avg_execution">Среднее время</string>
 </resources>

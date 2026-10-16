@@ -1,26 +1,16 @@
 package com.example.qwant.server
 
-/**
- * Доменные модели сервера (клиент-серверное приложение из ТЗ кейса
- * «Мобильное приложение для водителей дизельной техники»).
- *
- * Сериализуются в JSON через Gson (см. Routes/JSON в Main.kt).
- */
-
-/** Тип дизельной техники. */
 object EquipmentType {
     const val MRG = "MRG" // машина раздачи глинозёма
     const val MPK = "MPK" // машина пробойки корки
 }
 
-/** Типы заявок. */
 object OrderType {
     const val OBRABOTKA = "OBRABOTKA" // обработка электролизёра
     const val PODSYPKA = "PODSYPKA"   // подсыпка (МРГ) — со «светофором» срочности
     const val REMONT = "REMONT"       // заявка на ремонт из кабины
 }
 
-/** Статусы заявки. */
 object OrderStatus {
     const val NEW = "NEW"             // новая, ожидает водителя
     const val ACCEPTED = "ACCEPTED"   // «Взять в работу»
@@ -28,13 +18,11 @@ object OrderStatus {
     const val CANCELLED = "CANCELLED"
 }
 
-/** Вид элемента схемы корпуса. */
 object ZoneKind {
     const val DANGER = "DANGER"       // опасная зона
     const val DEAD_END = "DEAD_END"   // тупик
 }
 
-/** «Светофор» срочности заявки по МРГ. */
 object Urgency {
     const val GREEN = "GREEN"   // сразу после принятия
     const val ORANGE = "ORANGE" // через 10 минут
@@ -69,7 +57,6 @@ data class Electrolyzer(
     val status: String,
 )
 
-/** Геометрия в нормализованных координатах карты (0..1). */
 data class Zone(
     val id: Int,
     val kind: String,
@@ -119,9 +106,7 @@ data class Order(
     val acceptedAt: String?,
     val acceptedAtMillis: Long?,
     val completedAt: String?,
-    /** Время с момента принятия, в минутах (для светофора). */
     val elapsedMinutes: Long?,
-    /** "GREEN" | "ORANGE" | "RED" | null — только для активных заявок типа PОDSYPKA. */
     val urgency: String?,
 )
 
