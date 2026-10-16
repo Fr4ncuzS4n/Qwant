@@ -75,12 +75,12 @@ class DriverViewModel(private val driverId: Int) : ViewModel() {
         }
     }
 
-    /** Действие №1 — «Взять в работу». */
+    /** Действие №1 — «Взять в работу». Исполнителя сервер определяет по токену сессии. */
     fun accept(orderId: Int, onResult: (Result<Order>) -> Unit = {}) {
         if (_state.value.busy) return
         _state.update { it.copy(busy = true) }
         viewModelScope.launch {
-            val result = runCatching { QwantApi.acceptOrder(orderId, driverId) }
+            val result = runCatching { QwantApi.acceptOrder(orderId) }
             _state.update { it.copy(busy = false) }
             result.onSuccess { refresh() }
             onResult(result)

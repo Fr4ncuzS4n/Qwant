@@ -6,6 +6,7 @@ import com.example.qwant.data.Order
 import com.example.qwant.data.OrderType
 import com.example.qwant.data.QwantApi
 import com.example.qwant.data.Scheme
+import com.example.qwant.ui.SchemeFragment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +17,8 @@ data class CreateOrderUiState(
     val loading: Boolean = true,
     val error: String? = null,
     val scheme: Scheme? = null,
-    val selectedRow: Int = 1,
+    /** Видимый фрагмент корпуса при выборе электролизёра. */
+    val fragment: SchemeFragment? = null,
     val type: String = OrderType.OBRABOTKA,
     val electrolyzerId: Int? = null,
     val description: String = "",
@@ -25,9 +27,13 @@ data class CreateOrderUiState(
 )
 
 /** Создание заявки диспетчером: тип + электролизёр на схеме корпуса. */
-class CreateOrderViewModel : ViewModel() {
+class CreateOrderViewModel(requesterName: String = "") : ViewModel() {
 
-    private val _state = MutableStateFlow(CreateOrderUiState())
+    private val _state = MutableStateFlow(
+        CreateOrderUiState(
+            requestedBy = requesterName.ifBlank { "Диспетчер" },
+        )
+    )
     val state: StateFlow<CreateOrderUiState> = _state.asStateFlow()
 
     init {
@@ -47,8 +53,8 @@ class CreateOrderViewModel : ViewModel() {
         }
     }
 
-    fun selectRow(row: Int) {
-        _state.update { it.copy(selectedRow = row) }
+    fun showFragment(fragment: SchemeFragment) {
+        _state.update { it.copy(fragment = fragment) }
     }
 
     fun selectType(type: String) {

@@ -4,6 +4,7 @@ import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -43,7 +44,7 @@ class DatabaseTest {
     @Test
     fun `first half is A, second half is B`() {
         val db = fresh(100)
-        val els = db.electrolyzers()
+        val els = db.scheme().electrolyzers
         assertEquals("A", els.first { it.row == 1 && it.position == 1 }.half)
         assertEquals("A", els.first { it.row == 1 && it.position == 10 }.half)
         assertEquals("B", els.first { it.row == 1 && it.position == 11 }.half)
@@ -53,7 +54,7 @@ class DatabaseTest {
     @Test
     fun `electrolyzers are numbered sequentially from 1`() {
         val db = fresh(100)
-        val numbers = db.electrolyzers().map { it.number }
+        val numbers = db.scheme().electrolyzers.map { it.number }
         assertEquals((1..100).toList(), numbers)
     }
 
@@ -67,6 +68,46 @@ class DatabaseTest {
         assertTrue(db.scheme().zones.any { it.kind == ZoneKind.DANGER })
         assertTrue(db.scheme().zones.any { it.kind == ZoneKind.DEAD_END })
         assertTrue(db.orders().isNotEmpty())
+    }
+
+    // --------------------------------------------------------------- корпуса
+
+    @Test
+    fun `two buildings are seeded with their own schemes`() {
+        val db = fresh(150)
+        val buildings = db.buildings()
+        assertEquals(2, buildings.size)
+        assertEquals(Db.DEFAULT_BUILDING, buildings.first().id)
+        assertTrue(buildings.first().isDefault)
+
+        val b4 = db.scheme("4")
+        val b3 = db.scheme("3")
+        assertEquals(150, b4.electrolyzerCount)
+        assertEquals(100, b3.electrolyzerCount)
+        assertEquals(30, b4.perRow)
+        assertEquals(20, b3.perRow)
+        assertEquals((1..150).toList(), b4.electrolyzers.map { it.number })
+        assertEquals((1..100).toList(), b3.electrolyzers.map { it.number })
+
+        // у каждого корпуса свои зоны и единственный вход
+        assertTrue(b4.zones.isNotEmpty() && b3.zones.isNotEmpty())
+        assertEquals(1, b4.gates.size)
+        assertEquals(1, b3.gates.size)
+        assertTrue(b4.gates.first().x < 0.5f)
+        assertTrue(b3.gates.first().x >= 0.5f)
+    }
+
+    @Test
+    fun `scheme defaults to the default building`() {
+        val db = fresh()
+        assertEquals(Db.DEFAULT_BUILDING, db.scheme().building)
+    }
+
+    @Test
+    fun `unknown building is not reported as existing`() {
+        val db = fresh()
+        assertFalse(db.buildingExists("99"))
+        assertTrue(db.buildingExists(Db.DEFAULT_BUILDING))
     }
 
     // ----------------------------------------------------------- жизненный цикл

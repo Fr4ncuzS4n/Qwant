@@ -1,14 +1,12 @@
 package com.example.qwant.screens
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,51 +16,53 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.qwant.R
-import com.example.qwant.data.Electrolyzer
+import com.example.qwant.data.Building
+import com.example.qwant.data.DEFAULT_BUILDING
 import com.example.qwant.data.Gate
 import com.example.qwant.data.Scheme
-import com.example.qwant.data.Zone
 import com.example.qwant.data.ZoneKind
 import com.example.qwant.ui.ErrorBox
+import com.example.qwant.ui.HallLayout
+import com.example.qwant.ui.HallSchemeCanvas
+import com.example.qwant.ui.HallSide
 import com.example.qwant.ui.LoadingBox
 import com.example.qwant.ui.QwantTopBar
+import com.example.qwant.ui.SchemeFragment
 import com.example.qwant.ui.SectionCard
+import com.example.qwant.ui.rememberHallFormat
 import com.example.qwant.ui.theme.ElectrolyzerService
+import com.example.qwant.ui.theme.LaneDrive
 import com.example.qwant.ui.theme.SignalGreen
 import com.example.qwant.ui.theme.ZoneDanger
 import com.example.qwant.ui.theme.ZoneDeadEnd
 
 /**
- * Схема корпуса №4: электролизёры по рядам (каждый ряд делится на половины A/B),
- * отмечены опасные зоны и тупики, ворота можно открыть дистанционно.
+ * Схема корпуса. Сверху — выбор корпуса (если корпусов несколько), ниже —
+ * **весь корпус целиком**: все ряды и электролизёры, собранные в блоки (внутри
+ * блока — узкий непроходимый зазор, между блоками — проход для техники),
+ * проезды между рядами, дороги вдоль боковых стен, широкая полоса разворота
+ * сверху и снизу и стены корпуса с единственным входом (слева или справа);
+ * отмечены опасные зоны, тупики и ворота.
+ *
+ * Схема всегда умещается в экран (масштабируется по ширине), поэтому корпус
+ * виден целиком без прокрутки по фрагментам.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,268 +72,214 @@ fun SchemeScreen(
     viewModel: SchemeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val format = rememberHallFormat()
 
     Scaffold(
         topBar = {
             QwantTopBar(
                 title = stringResource(R.string.scheme_title),
-                subtitle = stringResource(R.string.scheme_subtitle),
+                subtitle = stringResource(
+                    R.string.scheme_subtitle_building,
+                    state.scheme?.building ?: state.buildingId ?: DEFAULT_BUILDING,
+                ),
                 onBack = onBack,
                 actions = {
-                    androidx.compose.material3.TextButton(onClick = onOpenGates) {
+                    TextButton(onClick = onOpenGates) {
                         Text(stringResource(R.string.menu_gates))
                     }
                 },
             )
         }
     ) { innerPadding ->
-        when {
-            state.loading -> LoadingBox(Modifier.padding(innerPadding))
-            state.error != null -> ErrorBox(
-                message = state.error!!,
-                onRetry = viewModel::load,
-                modifier = Modifier.padding(innerPadding),
-            )
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            // Выбор корпуса доступен всегда, в том числе пока грузится схема.
+            if (state.buildings.size > 1) {
+                BuildingPicker(
+                    buildings = state.buildings,
+                    selectedId = state.buildingId,
+                    onSelect = viewModel::selectBuilding,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
 
-            else -> state.scheme?.let { scheme ->
-                Column(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    SchemeCanvas(
+            when {
+                state.scheme != null -> state.scheme?.let { scheme ->
+                    val layout = remember(scheme.rows, scheme.perRow, format) {
+                        HallLayout.of(scheme, format)
+                    }
+                    // Экран показывает весь корпус: все ряды и электролизёры.
+                    val fragment = remember(layout) { layout.fullFragment() }
+
+                    SchemeBody(
+                        modifier = Modifier.weight(1f),
                         scheme = scheme,
-                        selectedId = state.selectedElectrolyzerId,
-                        onElectrolyzerTap = viewModel::selectElectrolyzer,
-                        onGateTap = viewModel::toggleGate,
+                        layout = layout,
+                        fragment = fragment,
+                        selectedElectrolyzerId = state.selectedElectrolyzerId,
+                        onSelectElectrolyzer = viewModel::selectElectrolyzer,
+                        onToggleGate = viewModel::toggleGate,
                     )
-
-                    state.scheme?.electrolyzers?.firstOrNull {
-                        it.id == state.selectedElectrolyzerId
-                    }?.let { selected ->
-                        SectionCard(title = stringResource(R.string.scheme_selected_title)) {
-                            Text(
-                                text = stringResource(
-                                    R.string.scheme_selected_value,
-                                    selected.number,
-                                    selected.row,
-                                    selected.half,
-                                    selected.series.orEmpty(),
-                                ),
-                                style = MaterialTheme.typography.bodyLarge,
-                            )
-                            Text(
-                                text = if (selected.status == "SERVICE") {
-                                    stringResource(R.string.scheme_status_service)
-                                } else {
-                                    stringResource(R.string.scheme_status_ok)
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-
-                    SectionCard(title = stringResource(R.string.scheme_gates_title)) {
-                        scheme.gates.forEach { gate ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(
-                                    text = "${gate.name} · " + if (gate.isOpen) {
-                                        stringResource(R.string.gate_opened)
-                                    } else {
-                                        stringResource(R.string.gate_closed)
-                                    },
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                androidx.compose.material3.Button(
-                                    onClick = { viewModel.toggleGate(gate) },
-                                    enabled = state.busyGateId == null,
-                                ) {
-                                    Text(
-                                        if (gate.isOpen) {
-                                            stringResource(R.string.gate_close)
-                                        } else {
-                                            stringResource(R.string.gate_open)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    SchemeLegend(scheme)
                 }
+
+                state.error != null -> ErrorBox(
+                    message = state.error!!,
+                    onRetry = viewModel::load,
+                    modifier = Modifier.weight(1f),
+                )
+
+                else -> LoadingBox(Modifier.weight(1f))
             }
         }
     }
 }
 
+/** Выбор корпуса цеха: чипы «Корпус N · количество электролизёров». */
 @Composable
-private fun SchemeCanvas(
-    scheme: Scheme,
-    selectedId: Int?,
-    onElectrolyzerTap: (Int) -> Unit,
-    onGateTap: (Gate) -> Unit,
+private fun BuildingPicker(
+    buildings: List<Building>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    // Хит-тесты, заполняются при отрисовке и читаются обработчиком нажатий.
-    val electrolyzerHitZones = remember { mutableListOf<Pair<Rect, Electrolyzer>>() }
-    val gateHitZones = remember { mutableListOf<Pair<Rect, Gate>>() }
-    val textMeasurer = rememberTextMeasurer()
-
-    val okColor = MaterialTheme.colorScheme.surfaceVariant
-    val serviceColor = ElectrolyzerService
-    val selectedColor = MaterialTheme.colorScheme.primary
-    val lineColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-    val cellTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val gateOpenColor = SignalGreen
-    val gateClosedColor = MaterialTheme.colorScheme.outline
-
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1.5f)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-            .pointerInput(scheme) {
-                detectTapGestures { offset ->
-                    electrolyzerHitZones.firstOrNull { it.first.contains(offset) }
-                        ?.let { onElectrolyzerTap(it.second.id) }
-                        ?: gateHitZones.firstOrNull { it.first.contains(offset) }
-                            ?.let { onGateTap(it.second) }
-                }
-            },
-    ) {
-        val padding = 20f
-        val rows = scheme.rows.coerceAtLeast(1)
-        val perRow = scheme.perRow.coerceAtLeast(1)
-        val availableWidth = size.width - padding * 2
-        val availableHeight = size.height - padding * 2
-        val rowHeight = availableHeight / rows
-        val cellWidth = availableWidth / perRow
-
-        electrolyzerHitZones.clear()
-        gateHitZones.clear()
-
-        // Ряды электролизёров
-        scheme.electrolyzers.forEach { electrolyzer ->
-            val rowIndex = (electrolyzer.row - 1).coerceAtLeast(0)
-            val positionIndex = (electrolyzer.position - 1).coerceAtLeast(0)
-            val left = padding + positionIndex * cellWidth
-            val top = padding + rowIndex * rowHeight
-            val rect = Rect(
-                offset = Offset(left + 1f, top + 2f),
-                size = Size(cellWidth - 2f, rowHeight - 5f),
-            )
-            val color = when {
-                electrolyzer.id == selectedId -> selectedColor
-                electrolyzer.status == "SERVICE" -> serviceColor
-                else -> okColor
-            }
-            drawRoundRect(
-                color = color,
-                topLeft = rect.topLeft,
-                size = rect.size,
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f),
-            )
-            if (cellWidth > 24f) {
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = electrolyzer.number.toString(),
-                    topLeft = Offset(rect.left + 5f, rect.top + 4f),
-                    style = TextStyle(
-                        color = cellTextColor,
-                        fontSize = (cellWidth / 3).coerceIn(8f, 16f).sp,
-                    ),
+    SectionCard(title = stringResource(R.string.scheme_building_title), modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            buildings.forEach { building ->
+                FilterChip(
+                    selected = building.id == selectedId,
+                    onClick = { onSelect(building.id) },
+                    label = {
+                        Text(
+                            stringResource(
+                                R.string.scheme_building_chip,
+                                building.id,
+                                building.electrolyzerCount,
+                            )
+                        )
+                    },
                 )
             }
-            electrolyzerHitZones.add(rect to electrolyzer)
-        }
-
-        // Границы половин ряда (A/B)
-        for (rowIndex in 0 until rows) {
-            val y = padding + rowIndex * rowHeight
-            drawLine(
-                color = lineColor,
-                start = Offset(padding, y),
-                end = Offset(size.width - padding, y),
-                strokeWidth = 1f,
-            )
-            val halfX = padding + availableWidth / 2f
-            if (perRow % 2 == 0) {
-                drawLine(
-                    color = lineColor,
-                    start = Offset(halfX, y),
-                    end = Offset(halfX, y + rowHeight),
-                    strokeWidth = 2f,
-                )
-            }
-        }
-
-        // Опасные зоны и тупики
-        scheme.zones.forEach { zone ->
-            val rect = Rect(
-                offset = Offset(zone.x * size.width, zone.y * size.height),
-                size = Size(zone.w * size.width, zone.h * size.height),
-            )
-            val color = if (zone.kind == ZoneKind.DANGER) ZoneDanger else ZoneDeadEnd
-            drawRect(
-                color = color.copy(alpha = 0.18f),
-                topLeft = rect.topLeft,
-                size = rect.size,
-            )
-            drawRect(
-                color = color,
-                topLeft = rect.topLeft,
-                size = rect.size,
-                style = Stroke(width = 2f),
-            )
-            if (rect.width > 70f) {
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = zone.label,
-                    topLeft = Offset(rect.left + 6f, rect.top + 6f),
-                    style = TextStyle(color = color, fontSize = 10.sp),
-                )
-            }
-        }
-
-        // Ворота
-        scheme.gates.forEach { gate ->
-            val center = Offset(gate.x * size.width, gate.y * size.height)
-            val gateSize = 34f
-            val rect = Rect(
-                offset = Offset(center.x - gateSize / 2, center.y - gateSize / 2),
-                size = Size(gateSize, gateSize),
-            )
-            drawRect(
-                color = (if (gate.isOpen) gateOpenColor else gateClosedColor),
-                topLeft = rect.topLeft,
-                size = rect.size,
-                style = Stroke(width = 3f),
-            )
-            drawText(
-                textMeasurer = textMeasurer,
-                text = if (gate.isOpen) "O" else "X",
-                topLeft = Offset(rect.left + 10f, rect.top + 8f),
-                style = TextStyle(
-                    color = if (gate.isOpen) gateOpenColor else gateClosedColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-            )
-            gateHitZones.add(rect to gate)
         }
     }
 }
 
+/**
+ * Тело схемы. Схема занимает всю ширину, чтобы корпус был виден целиком;
+ * сведения (выбранный электролизёр, зоны, обозначения) — ниже.
+ */
 @Composable
-private fun SchemeLegend(scheme: Scheme) {
+private fun SchemeBody(
+    modifier: Modifier,
+    scheme: Scheme,
+    layout: HallLayout,
+    fragment: SchemeFragment,
+    selectedElectrolyzerId: Int?,
+    onSelectElectrolyzer: (Int) -> Unit,
+    onToggleGate: (Gate) -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SchemeCard(
+            scheme = scheme,
+            layout = layout,
+            fragment = fragment,
+            selectedElectrolyzerId = selectedElectrolyzerId,
+            onSelectElectrolyzer = onSelectElectrolyzer,
+            onToggleGate = onToggleGate,
+        )
+        DetailsPanes(scheme, layout, selectedElectrolyzerId)
+    }
+}
+
+@Composable
+private fun SchemeCard(
+    scheme: Scheme,
+    layout: HallLayout,
+    fragment: SchemeFragment,
+    selectedElectrolyzerId: Int?,
+    onSelectElectrolyzer: (Int) -> Unit,
+    onToggleGate: (Gate) -> Unit,
+) {
+    SectionCard(title = stringResource(R.string.scheme_plan_title)) {
+        HallSchemeCanvas(
+            scheme = scheme,
+            layout = layout,
+            fragment = fragment,
+            selectedId = selectedElectrolyzerId,
+            onElectrolyzerTap = onSelectElectrolyzer,
+            onGateTap = onToggleGate,
+        )
+        Text(
+            text = stringResource(R.string.scheme_full_note, scheme.electrolyzerCount),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Сведения о схеме: выбранный электролизёр, зоны/тупики и обозначения. */
+@Composable
+private fun DetailsPanes(
+    scheme: Scheme,
+    layout: HallLayout,
+    selectedElectrolyzerId: Int?,
+) {
+    scheme.electrolyzers.firstOrNull { it.id == selectedElectrolyzerId }?.let { selected ->
+        SectionCard(title = stringResource(R.string.scheme_selected_title)) {
+            Text(
+                text = stringResource(
+                    R.string.scheme_selected_value,
+                    selected.number,
+                    selected.row,
+                    selected.half,
+                    selected.series.orEmpty(),
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = if (selected.status == "SERVICE") {
+                    stringResource(R.string.scheme_status_service)
+                } else {
+                    stringResource(R.string.scheme_status_ok)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    SectionCard(title = stringResource(R.string.scheme_zones_title)) {
+        scheme.zones.forEach { zone ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (zone.kind == ZoneKind.DANGER) ZoneDanger else ZoneDeadEnd
+                        ),
+                )
+                Text(text = zone.label, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    }
+
+    SchemeLegend(scheme, layout)
+}
+
+@Composable
+private fun SchemeLegend(scheme: Scheme, layout: HallLayout) {
     SectionCard(title = stringResource(R.string.scheme_legend_title)) {
         Row(
             modifier = Modifier
@@ -343,35 +289,78 @@ private fun SchemeLegend(scheme: Scheme) {
         ) {
             LegendItem(MaterialTheme.colorScheme.surfaceVariant, stringResource(R.string.scheme_status_ok))
             LegendItem(ElectrolyzerService, stringResource(R.string.scheme_status_service))
+            LegendItem(
+                MaterialTheme.colorScheme.outline,
+                stringResource(R.string.scheme_legend_block),
+                outline = true,
+            )
+            LegendItem(LaneDrive, stringResource(R.string.scheme_legend_passage))
+            LegendItem(
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                stringResource(R.string.scheme_legend_gap),
+                outline = true,
+            )
             LegendItem(ZoneDanger, stringResource(R.string.scheme_legend_danger))
             LegendItem(ZoneDeadEnd, stringResource(R.string.scheme_legend_dead_end))
             LegendItem(SignalGreen, stringResource(R.string.scheme_legend_gate_open))
+            LegendItem(
+                MaterialTheme.colorScheme.outline,
+                stringResource(R.string.scheme_legend_entrance),
+                outline = true,
+            )
+            LegendItem(LaneDrive, stringResource(R.string.scheme_legend_lane))
+            LegendItem(LaneDrive, stringResource(R.string.scheme_legend_wall_road))
         }
         Text(
             text = stringResource(
                 R.string.scheme_summary,
+                scheme.building,
                 scheme.electrolyzerCount,
                 scheme.rows,
                 scheme.halfSize,
+                layout.blocksPerRow,
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        scheme.gates.firstOrNull()?.let { gate ->
+            Text(
+                text = stringResource(
+                    if (layout.entranceSide(gate.x) == HallSide.LEFT) {
+                        R.string.scheme_entrance_left
+                    } else {
+                        R.string.scheme_entrance_right
+                    },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
 @Composable
-private fun LegendItem(color: Color, label: String) {
+private fun LegendItem(color: Color, label: String, outline: Boolean = false) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(14.dp)
-                .clip(CircleShape)
-                .background(color)
-        )
+        if (outline) {
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.5.dp, color, RoundedCornerShape(3.dp)),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(color),
+            )
+        }
         Text(text = label, style = MaterialTheme.typography.bodySmall)
     }
 }

@@ -253,8 +253,8 @@ app/src/main/
 **Тесты:**
 - Unit (`app/src/test/`): `AuthViewModelTest` (7) — вход, ошибки, валидация, проверка
   сервера; `RoutesTest` (10) — старт по роли и разграничение экранов;
-  `SchemeViewModelTest` (4) — загрузка корпусов, выбор корпуса и ворота;
-  `SchemeLayoutTest` (24) — геометрия схемы; `ExampleUnitTest` (шаблон).
+  `SchemeViewModelTest` (5) — загрузка корпусов, выбор корпуса, кэш схем и ворота;
+  `SchemeLayoutTest` (25) — геометрия схемы; `ExampleUnitTest` (шаблон).
   Запуск: `./gradlew test` (нужен `kotlinx-coroutines-test`).
 - Инструментальные (`app/src/androidTest/`): `ThemeDesignTest` (3) — брендовые цвета
   «графит + расплав» и типографика планшета; `AuthScreenTest` (5) — поля, кнопка,

@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,12 +38,13 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DispatcherScreen(
+    dispatcherName: String,
     onCreateOrder: () -> Unit,
     onOpenOrder: (Int) -> Unit,
     onOpenScheme: () -> Unit,
     onOpenGates: () -> Unit,
     onOpenStats: () -> Unit,
-    onBack: () -> Unit,
+    onLogout: () -> Unit,
     viewModel: DispatcherViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -59,8 +61,14 @@ fun DispatcherScreen(
         topBar = {
             QwantTopBar(
                 title = stringResource(R.string.dispatcher_title),
-                subtitle = stringResource(R.string.dispatcher_subtitle),
-                onBack = onBack,
+                subtitle = listOf(dispatcherName, stringResource(R.string.dispatcher_subtitle))
+                    .filter { it.isNotBlank() }
+                    .joinToString(" · "),
+                actions = {
+                    TextButton(onClick = onLogout) {
+                        Text(stringResource(R.string.logout))
+                    }
+                },
             )
         },
         floatingActionButton = {

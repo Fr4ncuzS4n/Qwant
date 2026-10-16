@@ -61,7 +61,7 @@ fun DriverScreen(
     onOpenScheme: () -> Unit,
     onOpenGates: () -> Unit,
     onOpenStats: () -> Unit,
-    onChangeDriver: () -> Unit,
+    onLogout: () -> Unit,
     viewModel: DriverViewModel = viewModel(key = "driver-$driverId") { DriverViewModel(driverId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,8 +86,8 @@ fun DriverScreen(
                 title = stringResource(R.string.driver_cabinet_title),
                 subtitle = listOfNotNull(driverName, equipmentName).joinToString(" · "),
                 actions = {
-                    TextButton(onClick = onChangeDriver) {
-                        Text(stringResource(R.string.driver_change))
+                    TextButton(onClick = onLogout) {
+                        Text(stringResource(R.string.logout))
                     }
                 },
             )

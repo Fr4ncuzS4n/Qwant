@@ -23,16 +23,56 @@ class Db(
 ) {
     private val conn: Connection = DriverManager.getConnection("jdbc:sqlite:$dbPath")
 
-    private val BUILDING = "4"
-
-    val perRow: Int = electrolyzerCount / rows
-
-    val halfSize: Int = perRow / 2
+    /**
+     * Образцовые корпуса: у каждого своя раскладка электролизёров и свой
+     * единственный вход. [DEFAULT_BUILDING] открывается клиентом по умолчанию;
+     * `QWANT_ELECTROLYZERS` задаёт число электролизёров в нём, а у второго корпуса
+     * число дополняет пару до «100 и 150» (ТЗ: «их может быть как 100, как и 150»).
+     * Порядок как в [buildings] — корпус по умолчанию первым.
+     */
+    private val buildingSizes: Map<String, Int> = linkedMapOf(
+        DEFAULT_BUILDING to electrolyzerCount,
+        "3" to if (electrolyzerCount == 100) 150 else 100,
+    )
 
     init {
         conn.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
         createSchema()
         if (countOf("equipment") == 0) seed()
+        if (countOf("users") == 0) seedUsers()
+    }
+
+    companion object {
+        /** Корпус, который клиент открывает по умолчанию (совпадает с ТЗ). */
+        const val DEFAULT_BUILDING = "4"
+    }
+
+    /** Число электролизёров в корпусе. */
+    fun electrolyzerCountOf(building: String): Int = buildingSizes[building] ?: electrolyzerCount
+
+    /** Электролизёров в ряду корпуса. */
+    fun perRowOf(building: String): Int = electrolyzerCountOf(building) / rows
+
+    /** Электролизёров в половине ряда корпуса. */
+    fun halfSizeOf(building: String): Int = perRowOf(building) / 2
+
+    /** Существует ли корпус с таким идентификатором. */
+    fun buildingExists(building: String): Boolean = buildingSizes.containsKey(building)
+
+    /** Корпуса цеха (корпус по умолчанию — первым): идентификатор, название, раскладка. */
+    fun buildings(): List<Building> {
+        val ids = listOf(DEFAULT_BUILDING) + buildingSizes.keys.filter { it != DEFAULT_BUILDING }
+        return ids.map { id ->
+            Building(
+                id = id,
+                name = "Корпус $id",
+                rows = rows,
+                perRow = perRowOf(id),
+                halfSize = halfSizeOf(id),
+                electrolyzerCount = electrolyzerCountOf(id),
+                isDefault = id == DEFAULT_BUILDING,
+            )
+        }
     }
 
     // ---------------------------------------------------------------- schema
@@ -109,6 +149,28 @@ class Db(
         )
         st.executeUpdate(
             """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                role TEXT NOT NULL,
+                name TEXT NOT NULL,
+                driver_id INTEGER REFERENCES drivers(id)
+            )
+            """.trimIndent()
+        )
+        st.executeUpdate(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                created_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        st.executeUpdate(
+            """
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 type TEXT NOT NULL,
@@ -158,28 +220,38 @@ class Db(
         }
 
         val numberToId = HashMap<Int, Int>()
-        var number = 1
-        for (r in 1..rows) {
-            for (p in 1..perRow) {
-                val half = if (p <= halfSize) "A" else "B"
-                val series = if (p % 2 == 0) "С8БМ" else "С8БМ(Э)"
-                val status = if (number % 37 == 0) "SERVICE" else "OK"
-                val id = insertReturningId(
-                    "INSERT INTO electrolyzers(number, building, row, position, half, series, status) VALUES(?,?,?,?,?,?,?)",
-                    number, BUILDING, r, p, half, series, status
-                )
-                numberToId[number] = id
-                number++
+        for (building in buildingSizes.keys) {
+            val perRow = perRowOf(building)
+            val halfSize = halfSizeOf(building)
+            var number = 1
+            for (r in 1..rows) {
+                for (p in 1..perRow) {
+                    val half = if (p <= halfSize) "A" else "B"
+                    val series = if (p % 2 == 0) "С8БМ" else "С8БМ(Э)"
+                    val status = if (number % 37 == 0) "SERVICE" else "OK"
+                    val id = insertReturningId(
+                        "INSERT INTO electrolyzers(number, building, row, position, half, series, status) VALUES(?,?,?,?,?,?,?)",
+                        number, building, r, p, half, series, status
+                    )
+                    // Для образцовых заявок нужны id электролизёров корпуса по умолчанию.
+                    if (building == DEFAULT_BUILDING) numberToId[number] = id
+                    number++
+                }
             }
+
+            exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DANGER, "Зона высокой температуры", building, 0.30, 0.02, 0.14, 0.16)
+            exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DANGER, "Проезд техники", building, 0.62, 0.42, 0.16, 0.14)
+            exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DEAD_END, "Тупик (разворот)", building, 0.01, 0.60, 0.12, 0.16)
+            exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DEAD_END, "Тупик у торца", building, 0.86, 0.78, 0.12, 0.14)
+
+            // В корпусе один вход; сторона (x < 0.5 — слева, иначе справа) задаёт
+            // разрыв в стене на схеме корпуса. У корпусов входы с разных сторон.
+            val entranceX = if (building == DEFAULT_BUILDING) 0.0 else 1.0
+            exec(
+                "INSERT INTO gates(name,building,x,y,is_open) VALUES(?,?,?,?,0)",
+                "Вход в корпус $building (главные ворота)", building, entranceX, 0.5
+            )
         }
-
-        exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DANGER, "Зона высокой температуры", BUILDING, 0.30, 0.02, 0.14, 0.16)
-        exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DANGER, "Проезд техники", BUILDING, 0.62, 0.42, 0.16, 0.14)
-        exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DEAD_END, "Тупик (разворот)", BUILDING, 0.01, 0.60, 0.12, 0.16)
-        exec("INSERT INTO zones(kind,label,building,x,y,w,h) VALUES(?,?,?,?,?,?,?)", ZoneKind.DEAD_END, "Тупик у ворот 2", BUILDING, 0.86, 0.78, 0.12, 0.14)
-
-        exec("INSERT INTO gates(name,building,x,y,is_open) VALUES(?,?,?,?,0)", "Ворота 1 (главные)", BUILDING, 0.18, 0.95)
-        exec("INSERT INTO gates(name,building,x,y,is_open) VALUES(?,?,?,?,0)", "Ворота 2", BUILDING, 0.82, 0.95)
 
         listOf(
             "Неисправность узла электролизёра",
@@ -212,6 +284,25 @@ class Db(
         )
     }
 
+    /** Учётные записи: диспетчер и водители (все пароли — «1234», demo). */
+    private fun seedUsers() {
+        createUser("dispatcher", "1234", Role.DISPATCHER, "Диспетчер смены", driverId = null)
+        listOf(
+            Triple("ivanov", "Иванов А.", 1),
+            Triple("petrov", "Петров С.", 2),
+            Triple("sidorov", "Сидоров В.", 3),
+            Triple("kuznetsov", "Кузнецов Д.", 4),
+        ).forEach { (login, name, driverId) ->
+            createUser(
+                login = login,
+                password = "1234",
+                role = Role.DRIVER,
+                name = name,
+                driverId = if (countOf("drivers") >= driverId) driverId else null,
+            )
+        }
+    }
+
     // --------------------------------------------------------------- helpers
 
     private fun exec(sql: String, vararg args: Any?) {
@@ -219,6 +310,76 @@ class Db(
             args.forEachIndexed { i, a -> ps.setObject(i + 1, a) }
             ps.executeUpdate()
         }
+    }
+
+    // ------------------------------------------------------------------ auth
+
+    /** Пароль хранится как SHA-256(salt + password) в hex; соль — UUID. */
+    private fun hashPassword(password: String, salt: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val bytes = digest.digest((salt + password).toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    fun createUser(login: String, password: String, role: String, name: String, driverId: Int?): Int {
+        val salt = java.util.UUID.randomUUID().toString()
+        return insertReturningId(
+            "INSERT INTO users(login, password_hash, salt, role, name, driver_id) VALUES(?,?,?,?,?,?)",
+            login, hashPassword(password, salt), salt, role, name, driverId,
+        )
+    }
+
+    /**
+     * Проверка логина/пароля: при успехе создаётся сессия с токеном (UUID)
+     * и возвращается [LoginResponse]; иначе — null.
+     */
+    fun authenticate(login: String, password: String): LoginResponse? {
+        var user: UserAccount? = null
+        var expectedHash: String? = null
+        var salt: String? = null
+        one("SELECT * FROM users WHERE login=?", login) {
+            expectedHash = it.getString("password_hash")
+            salt = it.getString("salt")
+            user = userAccount(it)
+        }
+        val u = user ?: return null
+        if (expectedHash == null || hashPassword(password, salt!!) != expectedHash) return null
+        val token = java.util.UUID.randomUUID().toString()
+        exec("INSERT INTO sessions(token, user_id, created_at) VALUES(?,?,?)", token, u.id, System.currentTimeMillis())
+        return LoginResponse(token = token, user = u)
+    }
+
+    /** Пользователь по токену сессии или null, если токен неизвестен. */
+    fun userByToken(token: String): UserAccount? {
+        var user: UserAccount? = null
+        one(
+            """
+            SELECT u.* FROM sessions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.token = ?
+            """.trimIndent(), token
+        ) { user = userAccount(it) }
+        return user
+    }
+
+    /** Выход: сессия удаляется. */
+    fun logout(token: String) {
+        exec("DELETE FROM sessions WHERE token=?", token)
+    }
+
+    private fun userAccount(rs: ResultSet): UserAccount {
+        val driverId = rs.getInt("driver_id").takeIf { v -> !rs.wasNull() }
+        val driver = driverId?.let { id -> drivers().firstOrNull { it.id == id } }
+        return UserAccount(
+            id = rs.getInt("id"),
+            login = rs.getString("login"),
+            name = rs.getString("name"),
+            role = rs.getString("role"),
+            driverId = driverId,
+            driverName = driver?.name,
+            equipmentName = driver?.equipmentName,
+            equipmentType = driver?.equipmentType,
+        )
     }
 
     private fun insertReturningId(sql: String, vararg args: Any?): Int {
@@ -312,12 +473,12 @@ class Db(
         return res
     }
 
-    fun scheme(building: String = BUILDING): Scheme = Scheme(
+    fun scheme(building: String = DEFAULT_BUILDING): Scheme = Scheme(
         building = building,
         rows = rows,
-        perRow = perRow,
-        halfSize = halfSize,
-        electrolyzerCount = electrolyzerCount,
+        perRow = perRowOf(building),
+        halfSize = halfSizeOf(building),
+        electrolyzerCount = electrolyzerCountOf(building),
         electrolyzers = electrolyzers(building),
         zones = query("SELECT * FROM zones WHERE building=? ORDER BY id", building) {
             Zone(it.getInt("id"), it.getString("kind"), it.getString("label"), it.getString("building"), it.getDouble("x"), it.getDouble("y"), it.getDouble("w"), it.getDouble("h"))
@@ -480,11 +641,12 @@ class Db(
     }
 
     fun config(): Map<String, Any> = mapOf(
-        "building" to BUILDING,
+        "building" to DEFAULT_BUILDING,
         "rows" to rows,
-        "perRow" to perRow,
-        "halfSize" to halfSize,
-        "electrolyzerCount" to electrolyzerCount,
+        "perRow" to perRowOf(DEFAULT_BUILDING),
+        "halfSize" to halfSizeOf(DEFAULT_BUILDING),
+        "electrolyzerCount" to electrolyzerCountOf(DEFAULT_BUILDING),
+        "buildings" to buildings(),
     )
 
     private fun iso(millis: Long): String = Instant.ofEpochMilli(millis).toString()
