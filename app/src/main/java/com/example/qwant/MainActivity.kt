@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.qwant.data.ServerConfig
 import com.example.qwant.data.SessionStore
 import com.example.qwant.screens.CreateOrderScreen
 import com.example.qwant.screens.DispatcherScreen
@@ -42,6 +43,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Адрес сервера читается до первого запроса API.
+        ServerConfig.init(this)
         setContent {
             QwantTheme {
                 QwantApp()

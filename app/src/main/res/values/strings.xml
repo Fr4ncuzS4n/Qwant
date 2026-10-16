@@ -24,6 +24,15 @@
     <string name="server_checking">Проверка связи с сервером…</string>
     <string name="server_available">Сервер доступен</string>
     <string name="server_unavailable">Сервер недоступен</string>
+    <string name="server_card_title">Сервер</string>
+    <string name="server_address">Адрес сервера</string>
+    <string name="server_address_hint">http://IP:порт</string>
+    <string name="server_change">Изменить</string>
+    <string name="server_check">Проверить</string>
+    <string name="server_save">Сохранить</string>
+    <string name="server_cancel">Отмена</string>
+    <string name="server_check_hint">Укажите адрес, на котором запущен сервер, и нажмите «Проверить».</string>
+    <string name="server_default_hint">Эмулятор: http://10.0.2.2:8080 · планшет: http://IP-компьютера:порт</string>
 
     <!-- Кабинет водителя -->
     <string name="driver_select_title">Выбор водителя</string>

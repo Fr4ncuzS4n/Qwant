@@ -186,16 +186,19 @@ private fun ElectrolyzerGrid(
     onSelect: (Int) -> Unit,
 ) {
     val electrolyzers = scheme.electrolyzers.filter { it.row == row }
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        electrolyzers.chunked(5).forEach { line ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                line.forEach { electrolyzer ->
-                    ElectrolyzerCell(
-                        electrolyzer = electrolyzer,
-                        selected = electrolyzer.id == selectedId,
-                        onClick = { onSelect(electrolyzer.id) },
-                    )
+    Box(
+        modifier = Modifier.horizontalScroll(rememberScrollState())
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            electrolyzers.chunked(5).forEach { line ->
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    line.forEach { electrolyzer ->
+                        ElectrolyzerCell(
+                            electrolyzer = electrolyzer,
+                            selected = electrolyzer.id == selectedId,
+                            onClick = { onSelect(electrolyzer.id) },
+                        )
+                    }
                 }
             }
         }

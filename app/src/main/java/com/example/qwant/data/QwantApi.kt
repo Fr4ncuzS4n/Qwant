@@ -15,13 +15,13 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Базовый адрес сервера (`server/`).
+ * Базовый адрес сервера (`server/`), берётся из [ServerConfig].
  *
- * `10.0.2.2` — адрес хост-машины из Android-эмулятора.
- * Для запуска на реальном планшете замените на IP компьютера с сервером,
- * например `http://192.168.1.10:8080`.
+ * Дефолт — `http://10.0.2.2:8080`: `10.0.2.2` это хост-машина из Android-эмулятора.
+ * Приложение позволяет сменить адрес на экране выбора кабинета (порт/адрес
+ * залипают в SharedPreferences и применяются без пересборки APK).
  */
-const val BASE_URL = "http://10.0.2.2:8080"
+val BASE_URL: String get() = ServerConfig.baseUrl
 
 /** Клиент REST API сервера. Тонкая обёртка над Ktor: только запросы, без логики. */
 object QwantApi {

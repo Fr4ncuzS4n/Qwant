@@ -24,8 +24,9 @@ Android-приложение (планшет) для **водителей диз
 По состоянию на текущий момент:
 - **Серверная часть реализована** в каталоге `server/` (Kotlin + Ktor + sqlite3,
   REST API со всем функционалом ТЗ — см. п. 5 и `server/README.md`).
-- **Android-часть** пока остаётся **почти чистым шаблоном Android Studio
-  (Empty Activity, Compose)** с пустыми файлами-заглушками под будущие экраны.
+- **Android-часть реализована** как клиент к этому серверу: два личных кабинета
+  (водитель и диспетчер), заявки, схема корпуса с опасными зонами/тупиками,
+  дистанционное управление воротами и статистика наработки (см. п. 6).
 
 ---
 
@@ -125,11 +126,13 @@ android {
 ```
 `local.properties` (`sdk.dir=...`) — машинно-зависимый, в git не добавлять.
 
-**Зависимости сейчас:** только Compose (BOM, material3, ui, tooling-preview),
-`activity-compose`, `core-ktx`, `lifecycle-runtime-ktx`, тестовые (junit, espresso,
-compose ui-test). **Нет** Retrofit/OkHttp, Room, Hilt, Coil, navigation-compose —
-под клиент-серверную часть их придётся добавить (согласуйте с пользователем, куда
-именно кладём сетевой слой).
+**Зависимости:** Compose (BOM, material3, ui, tooling-preview, material-icons-core),
+`activity-compose`, `core-ktx`, `lifecycle-runtime-ktx`, `lifecycle-viewmodel-compose`,
+`navigation-compose`, **Ktor Client 3.6.0** (`client-core`, `client-android`,
+`client-content-negotiation`, `serialization-kotlinx-json`) + `kotlinx-serialization-json`
+(плагин `org.jetbrains.kotlin.plugin.serialization`), тестовые (junit, espresso,
+compose ui-test). **Нет** Room, Hilt/Koin, Coil — при необходимости согласуйте с пользователем.
+Манифест запрашивает `INTERNET` и разрешает cleartext HTTP к dev-серверу.
 
 ---
 
@@ -183,36 +186,54 @@ StatusPages, CallLogging), `org.xerial:sqlite-jdbc`, logback. JDK 21.
 
 ```
 app/src/main/
-├── AndroidManifest.xml                 # 1 Activity, без uses-permission (в т.ч. нет INTERNET!)
+├── AndroidManifest.xml                 # 1 Activity, INTERNET, usesCleartextTraffic (dev-сервер по HTTP)
 ├── java/com/example/qwant/
-│   ├── MainActivity.kt                 # вход; QwantTheme { Scaffold { } } — тело ПУСТОЕ, MainScreen не вызывается
+│   ├── MainActivity.kt                 # вход, QwantTheme { QwantApp() } — NavHost со всеми маршрутами (Routes)
+│   ├── data/
+│   │   ├── Models.kt                   # @Serializable DTO сервера + константы (OrderType/OrderStatus/ZoneKind/Urgency)
+│   │   ├── QwantApi.kt                 # Ktor-клиент: BASE_URL из ServerConfig, все запросы /api/*
+│   │   ├── ServerConfig.kt             # адрес сервера (дефолт 10.0.2.2:8080), настройка в UI + SharedPreferences
+│   │   └── SessionStore.kt             # SharedPreferences: выбранный водитель + техника
 │   ├── screens/
-│   │   ├── MainScreen.kt               # есть, но Button пустой (без текста/onClick) — не подключён к Activity
-│   │   ├── CreateOrderScreen.kt        # ЗАГЛУШКА: только `package ...` (1 строка)
-│   │   ├── DistanceScreen.kt           # ЗАГЛУШКА
-│   │   ├── DotDangerScreens.kt         # ЗАГЛУШКА
-│   │   ├── OrderScreen.kt              # ЗАГЛУШКА
-│   │   └── StatisticScreen.kt          # ЗАГЛУШКА
-│   └── ui/theme/                       # Color.kt / Type.kt / Theme.kt (шаблонные, dynamic color on)
-└── res/
-    ├── values/{strings,themes,colors}.xml   # app_name = "Qwant"; Theme.Qwant (framework Material)
-    ├── drawable/, mipmap-*/                 # стандартные иконки шаблона
-    └── xml/{backup,data_extraction}_rules.xml
+│   │   ├── MainScreen.kt               # выбор кабинета + индикация доступности сервера
+│   │   ├── DriverSelectScreen.kt       # выбор водителя (GET /api/drivers)
+│   │   ├── DriverScreen.kt             # КАБИНЕТ ВОДИТЕЛЯ: крупная заявка + «Взять в работу» / «Выполнено»
+│   │   ├── DispatcherScreen.kt         # КАБИНЕТ ДИСПЕТЧЕРА: список заявок с фильтрами, создание
+│   │   ├── CreateOrderScreen.kt        # постановка заявки: тип + электролизёр на схеме
+│   │   ├── OrderScreen.kt              # карточка заявки (детали, ход исполнения)
+│   │   ├── SchemeScreen.kt             # схема корпуса: электролизёры, опасные зоны, тупики, ворота (Canvas)
+│   │   └── GatesScreen.kt              # дистанционное открытие/закрытие ворот
+│   ├── ui/
+│   │   ├── Common.kt                   # QwantTopBar, StatusChip, UrgencyChip («светофор»), SectionCard, …
+│   │   ├── OrderCard.kt                # общая карточка заявки
+│   │   ├── Format.kt                   # форматирование моточасов/времени/длительности
+│   │   └── theme/                      # Color.kt (сигнальные цвета), Type.kt, Theme.kt
+│   │   └── (ViewModel-и: XxxViewModel.kt рядом с экранами, MVVM, StateFlow)
+│   └── res/values/strings.xml          # ВСЕ строки UI — русские, хардкода в composable нет
 ```
 
-**Тесты:** `app/src/test/.../ExampleUnitTest.kt` и `app/src/androidTest/.../ExampleInstrumentedTest.kt`
-— стандартные шаблонные заглушки.
+**Шаблонной заглушек больше нет:** экраны-заглушки (`CreateOrderScreen`, `OrderScreen`,
+`StatisticScreen`) реализованы; вместо `DotDangerScreens.kt` — `SchemeScreen.kt`,
+вместо `DistanceScreen.kt` — `GatesScreen.kt`.
 
-**Чего нет:** ViewModel, репозиториев, сети, БД, навигации, DI, локализации
-(только `values/`, без `values-ru`), CI, git-репозитория (каталог НЕ под git),
-настроенных линтеров/форматтеров (ktlint/detekt/spotless отсутствуют).
+**Архитектура:** MVVM, один `QwantApi` (без DI), навигация — `navigation-compose`.
+Каждый экран — `XxxScreen` + `XxxViewModel` (`StateFlow<UiState>`), загрузка через
+`viewModelScope`; кабинеты водителя/диспетчера перечитывают данные каждые 10 с,
+т.к. сервер считает «светофор» и время исполнения на каждый запрос.
+
+**Тесты:** `app/src/test/.../ExampleUnitTest.kt` и `app/src/androidTest/.../ExampleInstrumentedTest.kt`
+— стандартные шаблонные заглушки (не покрывают логику экранов).
+
+**Чего нет:** Room/локальной БД, DI, Coil, CI, настроенных линтеров/форматтеров
+(ktlint/detekt/spotless отсутствуют), `values-ru` (основной `values/` уже русскоязычный).
 
 **Известные «мелочи»:**
-- Ранее в корне лежал пустой файл `AGNETS.md` (опечатка в имени) — он удалён;
-  канонический файл инструкций — этот, `AGENTS.md`.
-- `MainScreen()` не вызывается из `MainActivity`, кнопка пустая. Экраны-заглушки
-  без содержимого. Строки UI захардкожены не будут — весь пользовательский текст
-  выносить в `strings.xml` (интерфейс русскоязычный, добавьте `values-ru` при необходимости).
+- Адрес сервера: дефолт `http://10.0.2.2:8080` задан в `data/ServerConfig.kt`
+  и **настраивается в приложении** (экран выбора кабинета → раздел «Сервер»),
+  хранится в SharedPreferences — без пересборки APK. `QwantApi.BASE_URL`
+  читается из `ServerConfig` на каждый запрос.
+- Сервер работает по HTTP, поэтому в манифесте `usesCleartextTraffic="true"` (только dev!).
+- В корпусе порт 8080 может быть занят другим процессом — сервер поднимайте с `PORT=8081`.
 
 ---
 
@@ -224,10 +245,12 @@ app/src/main/
 - **Именование экранов:** `*Screen.kt` (как в заглушках). Публичная точка входа
   экрана — `@Composable fun XxxScreen(...)`.
 - **Состояние:** для новых фич добавляйте ViewModel (`lifecycle-viewmodel-compose`)
-  и храните UI-state в `StateFlow`/`mutableStateOf`. Сейчас MVVM нет — при
-  реализации следуйте чистому MVVM, чтобы соответствовать критерию «рациональность».
-- **Сеть/сервер:** прежде чем выбирать стек (Retrofit/Ktor/…), согласуйте решение
-  с пользователем. Не забудьте добавить `INTERNET` в манифест.
+  и храните UI-state в `StateFlow`/`mutableStateOf`. MVVM уже внедрён (экраны
+  реализованы как `XxxScreen` + `XxxViewModel`) — следуйте этому шаблону, чтобы
+  соответствовать критерию «рациональность».
+- **Сеть/сервер:** выбран и согласован стек — **Ktor Client + kotlinx-serialization**
+  (`QwantApi.kt`, `BASE_URL`). Новые запросы добавляйте туда, а не в composable.
+  Не забудьте про `INTERNET` в манифесте.
 - **Ключевой UX-критерий кейса:** минимум действий. Главный экран водителя —
   крупная заявка + одна кнопка **«Взять в работу»**, затем **«Выполнено»**;
   один тап на быстрый тег отклонения. Не усложняйте.

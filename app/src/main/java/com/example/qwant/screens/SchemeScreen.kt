@@ -40,6 +40,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -66,8 +67,8 @@ import com.example.qwant.ui.theme.ZoneDeadEnd
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchemeScreen(
-    onBack: () -> Unit,
-    onOpenGates: () -> Unit,
+    onBack: () -> Unit = {},
+    onOpenGates: () -> Unit = {},
     viewModel: SchemeViewModel = viewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -166,7 +167,6 @@ fun SchemeScreen(
                             }
                         }
                     }
-
                     SchemeLegend(scheme)
                 }
             }

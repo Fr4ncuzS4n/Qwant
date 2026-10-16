@@ -29,7 +29,6 @@ import com.example.qwant.ui.LoadingBox
 import com.example.qwant.ui.QwantTopBar
 import com.example.qwant.ui.SectionCard
 import com.example.qwant.ui.asMotohours
-import com.example.qwant.ui.orderTypeTitle
 
 /** Статистика наработки оборудования в моточасах + сводка по заявкам. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -95,7 +94,7 @@ private fun SummaryCard(stats: Stats) {
         )
         stats.byType.forEach { (type, hours) ->
             InfoRow(
-                label = orderTypeTitle(type),
+                label = type,
                 value = stringResource(R.string.stats_motohours_short, hours.asMotohours()),
             )
         }
