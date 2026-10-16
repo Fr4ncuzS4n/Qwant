@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Монохромная версия иконки для тематических иконок Android 13+:
+  тот же «Q»-электролизёр, залитый системным цветом.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108"
+    android:tint="#FFFFFF">
+
+    <path
+        android:pathData="M68,64 L75,71"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M54,25 a25,25 0 1,0 0.1,0"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="10"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M57.5,37 L45.5,51.5 L52.5,51.5 L49,63 L61.5,47.5 L54.5,47.5 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>
