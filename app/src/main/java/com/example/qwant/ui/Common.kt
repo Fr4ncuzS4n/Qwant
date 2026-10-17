@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -262,6 +263,7 @@ fun BuildingPicker(
                 FilterChip(
                     selected = building.id == selectedId,
                     onClick = { onSelect(building.id) },
+                    modifier = Modifier.height(42.dp),
                     label = {
                         Text(
                             stringResource(
