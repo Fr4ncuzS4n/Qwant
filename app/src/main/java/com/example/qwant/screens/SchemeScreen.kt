@@ -295,11 +295,6 @@ private fun SchemeLegend(scheme: Scheme, layout: HallLayout) {
                 outline = true,
             )
             LegendItem(LaneDrive, stringResource(R.string.scheme_legend_passage))
-            LegendItem(
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                stringResource(R.string.scheme_legend_gap),
-                outline = true,
-            )
             LegendItem(ZoneDanger, stringResource(R.string.scheme_legend_danger))
             LegendItem(ZoneDeadEnd, stringResource(R.string.scheme_legend_dead_end))
             LegendItem(SignalGreen, stringResource(R.string.scheme_legend_gate_open))

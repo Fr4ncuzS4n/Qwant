@@ -13,26 +13,33 @@ import java.time.Instant
  * задайте путь к файлу: `QWANT_DB=/path/to/qwant.db`.
  *
  * Количество электролизёров задаётся через `QWANT_ELECTROLYZERS` (100 или 150),
- * по умолчанию 150. Электролизёры располагаются параллельными рядами и делятся
+ * по умолчанию 150. Электролизёры стоят параллельными рядами **по одной линии с
+ * каждой стороны от центральной дороги** корпуса (см. [rows] = 2) и делятся
  * пополам (половина A — левая, B — правая).
  */
 class Db(
     private val dbPath: String = System.getenv("QWANT_DB") ?: ":memory:",
     private val electrolyzerCount: Int = (System.getenv("QWANT_ELECTROLYZERS")?.toIntOrNull() ?: 150),
-    private val rows: Int = 5,
+    /**
+     * Число рядов (линий) электролизёров в корпусе. По ТЗ заявок — **два**:
+     * по одной линии с каждой стороны центральной дороги корпуса.
+     */
+    private val rows: Int = 2,
 ) {
     private val conn: Connection = DriverManager.getConnection("jdbc:sqlite:$dbPath")
 
     /**
-     * Образцовые корпуса: у каждого своя раскладка электролизёров и свой
-     * единственный вход. [DEFAULT_BUILDING] открывается клиентом по умолчанию;
-     * `QWANT_ELECTROLYZERS` задаёт число электролизёров в нём, а у второго корпуса
-     * число дополняет пару до «100 и 150» (ТЗ: «их может быть как 100, как и 150»).
+     * Образцовые корпуса: у каждого свой единственный вход, но **одинаковое**
+     * число электролизёров ([electrolyzerCount]). В образцовой БД четыре корпуса —
+     * №4 (открывается клиентом по умолчанию), №3, №2 и №1; раскладка у них
+     * совпадает, отличаются только вход, зоны и ворота.
      * Порядок как в [buildings] — корпус по умолчанию первым.
      */
     private val buildingSizes: Map<String, Int> = linkedMapOf(
         DEFAULT_BUILDING to electrolyzerCount,
-        "3" to if (electrolyzerCount == 100) 150 else 100,
+        "3" to electrolyzerCount,
+        "2" to electrolyzerCount,
+        "1" to electrolyzerCount,
     )
 
     init {

@@ -101,9 +101,7 @@ fun CreateOrderScreen(
                         val layout = remember(scheme.rows, scheme.perRow, format) {
                             HallLayout.of(scheme, format)
                         }
-                        val fragment = layout.clamp(
-                            state.fragment ?: layout.fragmentAround(1, 1)
-                        )
+                        val fragment = remember(layout) { layout.fullFragment() }
                         LaunchedEffect(layout) {
                             if (state.fragment == null) viewModel.showFragment(fragment)
                         }
@@ -115,7 +113,6 @@ fun CreateOrderScreen(
                             onElectrolyzerTap = viewModel::selectElectrolyzer,
                             onGateTap = { _ -> },
                         )
-                        SchemeFragmentControls(layout, fragment, viewModel::showFragment)
                         Text(
                             text = state.electrolyzerId?.let {
                                 stringResource(R.string.create_order_selected, it)

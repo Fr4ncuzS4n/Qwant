@@ -65,17 +65,13 @@ fun DispatcherScreen(
                     .filter { it.isNotBlank() }
                     .joinToString(" · "),
                 actions = {
+                    TextButton(onClick = onCreateOrder) {
+                        Text(stringResource(R.string.dispatcher_create))
+                    }
                     TextButton(onClick = onLogout) {
                         Text(stringResource(R.string.logout))
                     }
                 },
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onCreateOrder,
-                text = { Text(stringResource(R.string.dispatcher_create)) },
-                icon = {},
             )
         },
     ) { innerPadding ->

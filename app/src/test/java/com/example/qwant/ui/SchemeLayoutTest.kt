@@ -7,11 +7,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Юнит-тесты геометрии схемы корпуса: электролизёры сгруппированы в блоки
- * (внутри блока — узкий непроходимый зазор, между блоками — проход для
- * техники), между рядами — проезд, сверху и снизу — полоса разворота,
- * вдоль боковых стен — дорога, а в стенах корпуса — единственный вход.
- * Экран схемы показывает весь корпус целиком ([HallLayout.fullFragment]).
+ * Юнит-тесты геометрии схемы корпуса: электролизёры стоят двумя линиями (по
+ * одной с каждой стороны центральной дороги) по отдельности — между соседями
+ * проход для техники. По центру корпуса — широкая дорога разворота, вдоль стен —
+ * дороги для выезда к воротам, а в стене корпуса — единственный вход. Экран
+ * схемы показывает весь корпус целиком ([HallLayout.fullFragment]).
  */
 class SchemeLayoutTest {
 
@@ -51,15 +51,20 @@ class SchemeLayoutTest {
         assertTrue(layout.rowsPerView < 5)
     }
 
-    // ----------------------------------------------------- блоки и зазоры
+    // ------------------------------------------- электролизёры и проходы
 
     @Test
-    fun `electrolyzers inside a block are separated by a narrow gap`() {
+    fun `electrolyzers stand individually with a passage between them`() {
         val layout = HallLayout.of(scheme(), HallFormat.TABLET)
-        val first = layout.cellBox(1, 1)
-        val second = layout.cellBox(1, 2)
 
-        assertEquals(HallLayout.CELL_GAP, second.x - first.right, 0.001f)
+        // BLOCK_SIZE = 1: группировки нет — каждый электролизёр отдельно,
+        // между любыми соседями полноценный проход, а не служебный зазор
+        assertEquals(1, HallLayout.BLOCK_SIZE)
+        (1 until layout.perRow).forEach { position ->
+            val gap = layout.cellBox(1, position + 1).x - layout.cellBox(1, position).right
+            assertEquals(HallLayout.BLOCK_GAP, gap, 0.001f)
+        }
+        assertTrue(HallLayout.BLOCK_GAP > HallLayout.CELL_GAP)
     }
 
     @Test
@@ -69,24 +74,24 @@ class SchemeLayoutTest {
         val firstOfNext = layout.cellBox(1, HallLayout.BLOCK_SIZE + 1)
 
         assertEquals(HallLayout.BLOCK_GAP, firstOfNext.x - lastOfBlock.right, 0.001f)
-        // проход шире, чем служебный зазор, и не уже обычного проезда техники
+        // проход заметно шире служебного зазора и не уже дороги вдоль стены
         assertTrue(HallLayout.BLOCK_GAP > HallLayout.CELL_GAP)
-        assertTrue(HallLayout.BLOCK_GAP >= HallLayout.AISLE_H)
+        assertTrue(HallLayout.BLOCK_GAP >= HallLayout.SIDE_LANE)
     }
 
     @Test
-    fun `block box wraps all its electrolyzers`() {
+    fun `block frame wraps all the electrolyzers of its block`() {
         val layout = HallLayout.of(scheme(), HallFormat.TABLET)
-        val block = layout.blockBox(row = 1, position = 2)
+        val first = layout.firstPositionOfBlock(1)
+        val block = layout.blockBox(row = 1, position = first)
 
-        (1..HallLayout.BLOCK_SIZE).forEach { position ->
+        (first until first + HallLayout.BLOCK_SIZE).forEach { position ->
             val cell = layout.cellBox(1, position)
             assertTrue(cell.x >= block.x - 0.001f)
             assertTrue(cell.right <= block.right + 0.001f)
         }
         // следующий блок в рамку не попадает
-        val nextCell = layout.cellBox(1, HallLayout.BLOCK_SIZE + 1)
-        assertTrue(nextCell.x > block.right)
+        assertTrue(layout.cellBox(1, first + HallLayout.BLOCK_SIZE).x > block.right)
     }
 
     @Test
@@ -106,11 +111,14 @@ class SchemeLayoutTest {
     }
 
     @Test
-    fun `a row of thirty electrolyzers forms eight blocks`() {
+    fun `every electrolyzer in a row is its own block`() {
         val layout = HallLayout.of(scheme(perRow = 30), HallFormat.TABLET)
-        assertEquals(8, layout.blocksPerRow)
-        // последний (неполный) блок не вылезает за ширину сетки
-        assertTrue(layout.blockBox(1, 29).right <= layout.gridWidth + HallLayout.SIDE_LANE + 0.001f)
+
+        // BLOCK_SIZE = 1: блоков ровно столько же, сколько электролизёров
+        assertEquals(30, layout.blocksPerRow)
+        assertEquals(30, layout.firstPositionOfBlock(29))
+        // последний электролизёр не вылезает за ширину сетки
+        assertTrue(layout.cellBox(1, 30).right <= layout.gridWidth + HallLayout.SIDE_LANE + 0.001f)
     }
 
     // ---------------------------------------------------- проезды и разворот
@@ -136,9 +144,33 @@ class SchemeLayoutTest {
         assertEquals(0f, top.y, 0.001f)
         assertEquals(layout.totalWidth, top.w, 0.001f)
         assertEquals(layout.totalHeight, bottom.bottom, 0.001f)
-        // полоса разворота шире обычного проезда — машина успевает развернуться
-        assertTrue(HallLayout.TURN_LANE > HallLayout.AISLE_H)
+        // дорога вдоль торца не уже боковой — техника проезжает к воротам
+        assertTrue(HallLayout.TURN_LANE >= HallLayout.SIDE_LANE)
         assertTrue(layout.cellBox(1, 1).y >= top.bottom - 0.001f)
+    }
+
+    @Test
+    fun `wide central road runs between the two electrolyzer lines`() {
+        val layout = HallLayout.of(scheme(rows = 2, perRow = 75), HallFormat.TABLET)
+        val (top, bottom) = layout.turnLanes()
+
+        // центральная дорога — самая широкая: по ней разворачиваются к электролизёрам
+        assertTrue(HallLayout.AISLE_H > HallLayout.TURN_LANE)
+
+        // дорога ровно одна, лежит между двумя линиями и совпадает с центром корпуса
+        val central = layout.aisleBox(1)
+        assertEquals(layout.cellBox(1, 1).bottom, central.y, 0.001f)
+        assertEquals(HallLayout.AISLE_H, central.h, 0.001f)
+        assertEquals((top.bottom + bottom.y) / 2f, central.y + central.h / 2f, 0.001f)
+    }
+
+    @Test
+    fun `the second line sits against the far end road`() {
+        val layout = HallLayout.of(scheme(rows = 2, perRow = 75), HallFormat.TABLET)
+
+        // у последней линии центральной дороги под ней нет — сетка кончается линией
+        assertEquals(0f, layout.aisleBox(2).h, 0.001f)
+        assertEquals(layout.turnLanes()[1].y, layout.cellBox(2, 1).bottom, 0.001f)
     }
 
     @Test

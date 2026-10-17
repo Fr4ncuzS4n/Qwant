@@ -3,11 +3,14 @@ package com.example.qwant.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,17 +47,53 @@ import com.example.qwant.ui.theme.SignalGreen
 import com.example.qwant.ui.theme.ZoneDanger
 import com.example.qwant.ui.theme.ZoneDeadEnd
 
+/** Минимальный размер условного метра схемы, dp: ниже него схема прокручивается. */
+private const val SCHEME_MIN_UNIT_DP = 26f
+
 /**
- * Схема корпуса: блоки электролизёров, проходы между блоками, проезды техники
- * между рядами, полоса разворота сверху и снизу, **дороги вдоль боковых стен**
- * и единственный вход (слева или справа); поверх — опасные зоны, тупики и ворота.
- *
- * По умолчанию рисуется весь корпус целиком ([HallLayout.fullFragment]); при
- * передаче меньшего [SchemeFragment] схема показывает лишь его часть (так
- * выбирают электролизёр при постановке заявки). Тяжёлые детали — в [HallLayout].
+ * Схема корпуса, вписанная в доступную ширину, но **не мельче**
+ * [SCHEME_MIN_UNIT_DP] на условный метр: на узких экранах (телефон) схема не
+ * сжимается, а прокручивается по горизонтали. Само рисование — в
+ * [HallSchemeDrawing].
  */
 @Composable
 fun HallSchemeCanvas(
+    scheme: Scheme,
+    layout: HallLayout,
+    fragment: SchemeFragment,
+    selectedId: Int?,
+    onElectrolyzerTap: (Int) -> Unit,
+    onGateTap: (Gate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = layout.viewBox(fragment)
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val unit = maxOf(maxWidth / view.w, SCHEME_MIN_UNIT_DP.dp)
+        Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            HallSchemeDrawing(
+                scheme = scheme,
+                layout = layout,
+                fragment = fragment,
+                selectedId = selectedId,
+                onElectrolyzerTap = onElectrolyzerTap,
+                onGateTap = onGateTap,
+                modifier = Modifier.size(width = unit * view.w, height = unit * view.h),
+            )
+        }
+    }
+}
+
+/**
+ * Отрисовка схемы корпуса: две линии электролизёров, блоки и проходы между ними,
+ * широкая **центральная дорога** между линиями, дороги вдоль стен и единственный
+ * вход (слева или справа); поверх — опасные зоны, тупики и ворота.
+ *
+ * По умолчанию рисуется весь корпус целиком ([HallLayout.fullFragment]); при
+ * передаче меньшего [SchemeFragment] схема показывает лишь его часть. Тяжёлые
+ * детали — в [HallLayout].
+ */
+@Composable
+private fun HallSchemeDrawing(
     scheme: Scheme,
     layout: HallLayout,
     fragment: SchemeFragment,
@@ -98,15 +137,17 @@ fun HallSchemeCanvas(
 
     Canvas(
         modifier = modifier
-            .aspectRatio(view.w / view.h)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
             .pointerInput(fragment, layout) {
                 detectTapGestures { offset ->
-                    electrolyzerHitZones.firstOrNull { it.first.contains(offset) }
-                        ?.let { onElectrolyzerTap(it.second.id) }
-                        ?: gateHitZones.firstOrNull { it.first.contains(offset) }
-                            ?.let { onGateTap(it.second) }
+                    // Зона касания крупнее ячейки: по мелкому электролизёру иначе
+                    // не попасть пальцем. Сначала электролизёр, затем ворота.
+                    val minTouch = SCHEME_MIN_TOUCH_DP.dp.toPx()
+                    nearestTouch(electrolyzerHitZones, offset, minTouch)
+                        ?.let { onElectrolyzerTap(it.id) }
+                        ?: nearestTouch(gateHitZones, offset, minTouch)
+                            ?.let { onGateTap(it) }
                 }
             },
     ) {
@@ -270,7 +311,7 @@ fun HallSchemeCanvas(
         }
 
         // --- граница половин ряда A/B ---
-        if (layout.perRow % 2 == 0) {
+        if (layout.perRow > 1) {
             val boundary = layout.halfBoundaryX(scheme.halfSize)
             if (boundary in view.x..view.right) {
                 (fragment.rowFrom..fragment.rowTo).forEach { row ->
@@ -304,11 +345,11 @@ fun HallSchemeCanvas(
                 size = r.size,
                 cornerRadius = CornerRadius(4f),
             )
-            if (r.width > 26f) {
+            if (r.width.toDp() >= 12.dp) {
                 drawCentered(
                     text = electrolyzer.number.toString(),
                     box = box,
-                    style = TextStyle(fontSize = (r.width / 3.2f).coerceIn(9f, 18f).sp),
+                    style = TextStyle(fontSize = (r.width.toDp().value / 3.2f).coerceIn(8f, 16f).sp),
                     color = if (selected) selectedTextColor else cellTextColor,
                 )
             }

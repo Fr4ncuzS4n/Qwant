@@ -36,15 +36,16 @@ data class SchemeFragment(
  * Геометрия корпуса электролиза.
  *
  * Устройство корпуса (по аналогии с реальным цехом):
- *  - электролизёры стоят параллельными рядами и сгруппированы в **блоки**
- *    по [BLOCK_SIZE] штук ([blockBox]); внутри блока между электролизёрами
- *    только узкий служебный зазор [CELL_GAP] — **не проходим** для техники;
- *  - между блоками — широкий **проход** [BLOCK_GAP], которым МРГ/МПК проезжает
- *    с ряда на ряд ([passageBox]);
- *  - между рядами — проезд техники ([aisleBox]), а вдоль боковых стен —
- *    **дорога** ([sideLanes]);
- *  - сверху и снизу корпуса — широкая **полоса разворота** [TURN_LANE]
- *    ([turnLanes]), где машина разворачивается;
+ *  - электролизёры стоят **двумя линиями** ([rows]) — по одной с каждой стороны
+ *    центральной дороги, — **по отдельности** ([cellBox]): при [BLOCK_SIZE] = 1
+ *    группировки нет, поэтому между соседями всегда широкий проход для техники,
+ *    а узкий служебный зазор [CELL_GAP] не используется;
+ *  - между электролизёрами (блоками) — широкий **проход** [BLOCK_GAP], которым
+ *    МРГ/МПК выезжает с линии на центральную дорогу ([passageBox]);
+ *  - по центру корпуса — широкая **центральная дорога** [AISLE_H] ([aisleBox])
+ *    для разворота к электролизёрам; по высоте она совпадает с положением входа;
+ *  - вдоль боковых и торцевых стен — **дороги** ([sideLanes], [turnLanes]) для
+ *    выезда к воротам;
  *  - в корпусе **один вход** ([entranceBox]) — слева или справа
  *    ([entranceSide]); стена с воротами разомкнута.
  *
@@ -65,23 +66,32 @@ class HallLayout(
         const val CELL_W = 1.0f
         const val CELL_H = 0.42f
 
-        /** Узкий зазор между электролизёрами внутри блока — не проходим. */
+        /**
+         * Узкий зазор между электролизёрами одного блока — не проходим.
+         * Используется только при [BLOCK_SIZE] > 1 (при 1 не задействован).
+         */
         const val CELL_GAP = 0.16f
 
-        /** Сколько электролизёров в одном блоке. */
-        const val BLOCK_SIZE = 4
+        /**
+         * Сколько электролизёров в одном блоке. Значение 1 — группировки нет:
+         * каждый электролизёр стоит отдельно, а между соседями — проход [BLOCK_GAP].
+         */
+        const val BLOCK_SIZE = 1
 
-        /** Проход между блоками — проходим для МРГ/МПК. */
-        const val BLOCK_GAP = 1.15f
+        /** Проход между электролизёрами (блоками) — проходим для МРГ/МПК. */
+        const val BLOCK_GAP = 1.5f
 
-        /** Проезд техники между рядами. */
-        const val AISLE_H = 0.55f
+        /**
+         * **Центральная дорога** корпуса — широкая полоса между двумя линиями
+         * электролизёров: место разворота техники к электролизёрам.
+         */
+        const val AISLE_H = 2.0f
 
-        /** Дорога вдоль боковых стен корпуса (шире обычного проезда). */
-        const val SIDE_LANE = 0.8f
+        /** Дорога вдоль боковых стен корпуса (проезд к воротам). */
+        const val SIDE_LANE = 1.0f
 
-        /** Широкая полоса разворота техники сверху и снизу корпуса. */
-        const val TURN_LANE = 1.7f
+        /** Дорога вдоль торцевых стен корпуса (сверху и снизу) — проезд к воротам. */
+        const val TURN_LANE = 1.5f
 
         /** Ширина единственного входа в корпус. */
         const val ENTRANCE_W = 1.2f
@@ -112,15 +122,20 @@ class HallLayout(
     /** Шаг рядов по вертикали: электролизёр + проезд техники перед следующим рядом. */
     val rowPitch: Float = CELL_H + AISLE_H
 
-    /** Ширина одного полного блока (электролизёры с узкими зазорами). */
+    /** Ширина одного блока (при [BLOCK_SIZE] = 1 — одного электролизёра). */
     val blockWidth: Float = BLOCK_SIZE * CELL_W + (BLOCK_SIZE - 1) * CELL_GAP
 
-    /** Сколько блоков в ряду (последний может быть неполным). */
+    /** Сколько блоков в ряду (при [BLOCK_SIZE] = 1 — столько же, сколько электролизёров). */
     val blocksPerRow: Int = (perRow + BLOCK_SIZE - 1) / BLOCK_SIZE
 
-    /** Размеры сетки электролизёров без полос разворота и боковых проездов. */
+    /** Размеры сетки электролизёров без дорог вдоль стен. */
     val gridWidth: Float = blocksPerRow * (blockWidth + BLOCK_GAP) - BLOCK_GAP
-    val gridHeight: Float = rows * rowPitch
+
+    /**
+     * Высота сетки: два ряда электролизёров и **центральная дорога** [AISLE_H]
+     * между ними. У последнего ряда проезда снизу уже нет — он снаружи сетки.
+     */
+    val gridHeight: Float = rows * rowPitch - AISLE_H
 
     /** Размеры всего корпуса. */
     val totalWidth: Float = 2 * SIDE_LANE + gridWidth
@@ -180,29 +195,33 @@ class HallLayout(
     /** Номер первого электролизёра (1-based) в блоке `block` (0-based). */
     fun firstPositionOfBlock(block: Int): Int = block * BLOCK_SIZE + 1
 
-    /** Полоса ряда: электролизёры и проезд техники перед следующим рядом. */
+    /** Высота полосы ряда: сам ряд и центральная дорога под ним (у последнего ряда дороги нет). */
+    private fun bandHeight(row: Int): Float =
+        CELL_H + if (row >= rows) 0f else AISLE_H
+
+    /** Полоса ряда: электролизёры и центральная дорога перед следующим рядом. */
     fun rowBandBox(row: Int): Box {
         val r = (row - 1).coerceIn(0, rows - 1)
-        return Box(SIDE_LANE, TURN_LANE + r * rowPitch, gridWidth, rowPitch)
+        return Box(SIDE_LANE, TURN_LANE + r * rowPitch, gridWidth, bandHeight(row))
     }
 
-    /** Проезд техники между рядами — вдоль ряда `row`. */
+    /** Центральная дорога корпуса — под рядом `row` (у последнего ряда её нет). */
     fun aisleBox(row: Int): Box {
         val r = (row - 1).coerceIn(0, rows - 1)
-        return Box(SIDE_LANE, TURN_LANE + r * rowPitch + CELL_H, gridWidth, AISLE_H)
+        return Box(SIDE_LANE, TURN_LANE + r * rowPitch + CELL_H, gridWidth, bandHeight(row) - CELL_H)
     }
 
     /**
      * Проход между блоками перед электролизёром `position`
-     * (`position` — начало блока). Связывает проезд над рядом и под ним.
+     * (`position` — начало блока). Связывает ряд с центральной дорогой под ним.
      */
     fun passageBox(row: Int, position: Int): Box {
         val cell = cellBox(row, position)
         val r = (row - 1).coerceIn(0, rows - 1)
-        return Box(cell.x - BLOCK_GAP, TURN_LANE + r * rowPitch, BLOCK_GAP, rowPitch)
+        return Box(cell.x - BLOCK_GAP, TURN_LANE + r * rowPitch, BLOCK_GAP, bandHeight(row))
     }
 
-    /** Широкие полосы разворота техники сверху и снизу корпуса. */
+    /** Дороги вдоль торцевых стен корпуса (сверху и снизу). */
     fun turnLanes(): List<Box> = listOf(
         Box(0f, 0f, totalWidth, TURN_LANE),
         Box(0f, totalHeight - TURN_LANE, totalWidth, TURN_LANE),

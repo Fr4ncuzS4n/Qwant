@@ -22,22 +22,22 @@ class DatabaseTest {
     // ------------------------------------------------------------- наполнение
 
     @Test
-    fun `150 electrolyzers are laid out in 5 rows of 30, split in half`() {
+    fun `150 electrolyzers are laid out in two lines of 75, split in half`() {
         val db = fresh(150)
         val s = db.scheme()
-        assertEquals(5, s.rows)
-        assertEquals(30, s.perRow)
-        assertEquals(15, s.halfSize)
+        assertEquals(2, s.rows)
+        assertEquals(75, s.perRow)
+        assertEquals(37, s.halfSize)
         assertEquals(150, s.electrolyzers.size)
     }
 
     @Test
-    fun `100 electrolyzers are laid out in 5 rows of 20, split in half`() {
+    fun `100 electrolyzers are laid out in two lines of 50, split in half`() {
         val db = fresh(100)
         val s = db.scheme()
-        assertEquals(5, s.rows)
-        assertEquals(20, s.perRow)
-        assertEquals(10, s.halfSize)
+        assertEquals(2, s.rows)
+        assertEquals(50, s.perRow)
+        assertEquals(25, s.halfSize)
         assertEquals(100, s.electrolyzers.size)
     }
 
@@ -46,9 +46,9 @@ class DatabaseTest {
         val db = fresh(100)
         val els = db.scheme().electrolyzers
         assertEquals("A", els.first { it.row == 1 && it.position == 1 }.half)
-        assertEquals("A", els.first { it.row == 1 && it.position == 10 }.half)
-        assertEquals("B", els.first { it.row == 1 && it.position == 11 }.half)
-        assertEquals("B", els.first { it.row == 1 && it.position == 20 }.half)
+        assertEquals("A", els.first { it.row == 1 && it.position == 25 }.half)
+        assertEquals("B", els.first { it.row == 1 && it.position == 26 }.half)
+        assertEquals("B", els.first { it.row == 1 && it.position == 50 }.half)
     }
 
     @Test
@@ -73,21 +73,21 @@ class DatabaseTest {
     // --------------------------------------------------------------- корпуса
 
     @Test
-    fun `two buildings are seeded with their own schemes`() {
+    fun `two buildings share the same layout but have different entrances`() {
         val db = fresh(150)
         val buildings = db.buildings()
-        assertEquals(2, buildings.size)
+        assertEquals(4, buildings.size)
         assertEquals(Db.DEFAULT_BUILDING, buildings.first().id)
         assertTrue(buildings.first().isDefault)
 
         val b4 = db.scheme("4")
         val b3 = db.scheme("3")
         assertEquals(150, b4.electrolyzerCount)
-        assertEquals(100, b3.electrolyzerCount)
-        assertEquals(30, b4.perRow)
-        assertEquals(20, b3.perRow)
+        assertEquals(150, b3.electrolyzerCount)
+        assertEquals(75, b4.perRow)
+        assertEquals(75, b3.perRow)
         assertEquals((1..150).toList(), b4.electrolyzers.map { it.number })
-        assertEquals((1..100).toList(), b3.electrolyzers.map { it.number })
+        assertEquals((1..150).toList(), b3.electrolyzers.map { it.number })
 
         // у каждого корпуса свои зоны и единственный вход
         assertTrue(b4.zones.isNotEmpty() && b3.zones.isNotEmpty())
