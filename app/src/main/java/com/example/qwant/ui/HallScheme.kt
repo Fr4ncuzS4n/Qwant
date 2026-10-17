@@ -352,12 +352,13 @@ private fun HallSchemeDrawing(
             electrolyzerHitZones.add(r to electrolyzer)
         }
 
-        // --- опасные зоны и тупики ---
         scheme.zones.forEach { zone ->
             val box = layout.zoneBox(zone.x, zone.y, zone.w, zone.h)
             val r = rect(box)
             if (!inView(r)) return@forEach
-            val color = if (zone.kind == ZoneKind.DANGER) ZoneDanger else ZoneDeadEnd
+            // Отображаем только настоящие опасные зоны; проезды и тупики не показываем
+            if (zone.kind != ZoneKind.DANGER) return@forEach
+            val color = ZoneDanger
             drawRect(color = color.copy(alpha = 0.16f), topLeft = r.topLeft, size = r.size)
             drawRect(
                 color = color,

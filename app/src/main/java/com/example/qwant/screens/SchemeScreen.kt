@@ -219,7 +219,7 @@ private fun DetailsPanes(
     }
 
     SectionCard(title = stringResource(R.string.scheme_zones_title)) {
-        scheme.zones.forEach { zone ->
+        scheme.zones.filter { it.kind == ZoneKind.DANGER }.forEach { zone ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -229,12 +229,17 @@ private fun DetailsPanes(
                     modifier = Modifier
                         .size(12.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (zone.kind == ZoneKind.DANGER) ZoneDanger else ZoneDeadEnd
-                        ),
+                        .background(ZoneDanger),
                 )
                 Text(text = zone.label, style = MaterialTheme.typography.bodyMedium)
             }
+        }
+        if (scheme.zones.none { it.kind == ZoneKind.DANGER }) {
+            Text(
+                text = "Нет опасных зон",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 

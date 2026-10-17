@@ -128,7 +128,7 @@
 
     <!-- Схема корпуса -->
     <string name="scheme_title">Схема корпуса</string>
-    <string name="scheme_subtitle_building">Корпус %1$s · электролизёры, опасные зоны, тупики и ворота</string>
+    <string name="scheme_subtitle_building">Корпус %1$s · электролизёры, опасные зоны и ворота</string>
     <string name="scheme_building_title">Корпус</string>
     <string name="scheme_building_chip">Корпус %1$s · %2$d эл.</string>
     <string name="scheme_selected_title">Выбранный электролизёр</string>
@@ -153,7 +153,7 @@
     <string name="scheme_entrance_right">Единственный вход в корпус — справа</string>
     <string name="scheme_fragment_rows">Линии %1$d–%2$d из %3$d</string>
     <string name="scheme_fragment_cols">Электролизёры %1$d–%2$d из %3$d</string>
-    <string name="scheme_zones_title">Опасные зоны и тупики</string>
+    <string name="scheme_zones_title">Опасные зоны</string>
     <string name="scheme_legend_lane">Центральная дорога</string>
     <string name="scheme_legend_wall_road">Дорога вдоль стены</string>
 
