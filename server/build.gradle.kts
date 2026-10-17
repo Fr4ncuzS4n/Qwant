@@ -25,6 +25,8 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:1.5.18")
 
     testImplementation(kotlin("test"))
+    testImplementation("io.ktor:ktor-server-test-host:3.6.0")
+    testImplementation("io.ktor:ktor-serialization-gson:3.6.0")
 }
 
 kotlin {

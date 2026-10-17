@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Логотип предприятия: электролизёр (кольцо-ванна) с разрядом (молния) внутри
+  и «каплей расплава» — хвостом. Оранжево-медный расплав на графитовом фоне.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Кольцо электролизёра -->
+    <path
+        android:pathData="M60,18 a42,42 0 1,0 0.1,0"
+        android:strokeColor="#FF8A50"
+        android:strokeWidth="11"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Хвост «Q» — капля расплава из ванны -->
+    <path
+        android:pathData="M82,82 L100,100"
+        android:strokeColor="#FF8A50"
+        android:strokeWidth="13"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Разряд (молния) внутри ванны -->
+    <path
+        android:pathData="M64,34 L44,64 L58,64 L52,88 L78,52 L62,52 Z"
+        android:fillColor="#FFD9C2" />
+</vector>

@@ -36,6 +36,31 @@ object Urgency {
     const val RED = "RED"
 }
 
+/** Роли пользователей: кабинеты и права различаются. */
+object Role {
+    const val DRIVER = "DRIVER"
+    const val DISPATCHER = "DISPATCHER"
+}
+
+/** Авторизованный пользователь (`POST /api/auth/login`). */
+@Serializable
+data class UserAccount(
+    val id: Int,
+    val login: String = "",
+    val name: String = "",
+    val role: String = Role.DRIVER,
+    val driverId: Int? = null,
+    val driverName: String? = null,
+    val equipmentName: String? = null,
+    val equipmentType: String? = null,
+)
+
+@Serializable
+data class LoginRequest(val login: String, val password: String)
+
+@Serializable
+data class LoginResponse(val token: String, val user: UserAccount)
+
 @Serializable
 data class Driver(
     val id: Int,
@@ -121,6 +146,21 @@ data class Scheme(
     val electrolyzers: List<Electrolyzer> = emptyList(),
     val zones: List<Zone> = emptyList(),
     val gates: List<Gate> = emptyList(),
+)
+
+/**
+ * Корпус цеха (`GET /api/buildings`): у каждого своя раскладка электролизёров
+ * и свой единственный вход. `isDefault` — корпус, открываемый по умолчанию.
+ */
+@Serializable
+data class Building(
+    val id: String,
+    val name: String = "",
+    val rows: Int = 0,
+    val perRow: Int = 0,
+    val halfSize: Int = 0,
+    val electrolyzerCount: Int = 0,
+    val isDefault: Boolean = false,
 )
 
 @Serializable

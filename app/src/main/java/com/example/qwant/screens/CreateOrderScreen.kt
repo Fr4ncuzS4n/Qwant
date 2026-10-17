@@ -1,19 +1,14 @@
 package com.example.qwant.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,37 +18,42 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.qwant.R
-import com.example.qwant.data.Electrolyzer
 import com.example.qwant.data.OrderType
-import com.example.qwant.data.Scheme
 import com.example.qwant.ui.ErrorBox
+import com.example.qwant.ui.HallLayout
+import com.example.qwant.ui.HallSchemeCanvas
 import com.example.qwant.ui.LoadingBox
 import com.example.qwant.ui.QwantTopBar
+import com.example.qwant.ui.SchemeFragmentControls
 import com.example.qwant.ui.SectionCard
 import com.example.qwant.ui.orderTypeTitle
+import com.example.qwant.ui.rememberHallFormat
 
 /**
- * Постановка заявки диспетчером: тип заявки, электролизёр на схеме корпуса,
- * при необходимости — описание и заказчик.
+ * Постановка заявки диспетчером: тип заявки, электролизёр на схеме корпуса
+ * (тот же фрагмент цеха с проездами техники), описание и заказчик.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateOrderScreen(
+    requestedBy: String,
     onBack: () -> Unit,
     onCreated: (Int) -> Unit,
-    viewModel: CreateOrderViewModel = viewModel(),
+    viewModel: CreateOrderViewModel = viewModel(key = "create-order-$requestedBy") {
+        CreateOrderViewModel(requestedBy)
+    },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val format = rememberHallFormat()
 
     Scaffold(
         topBar = {
@@ -76,6 +76,8 @@ fun CreateOrderScreen(
                 modifier = Modifier
                     .padding(innerPadding)
                     .fillMaxSize()
+                    // Клавиатура не перекрывает поля ввода: прокрутка до клавиатуры.
+                    .imePadding()
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -99,16 +101,20 @@ fun CreateOrderScreen(
 
                 SectionCard(title = stringResource(R.string.create_order_electrolyzer)) {
                     state.scheme?.let { scheme ->
-                        RowSelector(
-                            rows = scheme.rows,
-                            selected = state.selectedRow,
-                            onSelect = viewModel::selectRow,
-                        )
-                        ElectrolyzerGrid(
+                        val layout = remember(scheme.rows, scheme.perRow, format) {
+                            HallLayout.of(scheme, format)
+                        }
+                        val fragment = remember(layout) { layout.fullFragment() }
+                        LaunchedEffect(layout) {
+                            if (state.fragment == null) viewModel.showFragment(fragment)
+                        }
+                        HallSchemeCanvas(
                             scheme = scheme,
-                            row = state.selectedRow,
+                            layout = layout,
+                            fragment = fragment,
                             selectedId = state.electrolyzerId,
-                            onSelect = viewModel::selectElectrolyzer,
+                            onElectrolyzerTap = viewModel::selectElectrolyzer,
+                            onGateTap = { _ -> },
                         )
                         Text(
                             text = state.electrolyzerId?.let {
@@ -151,97 +157,6 @@ fun CreateOrderScreen(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun RowSelector(rows: Int, selected: Int, onSelect: (Int) -> Unit) {
-    Text(
-        text = stringResource(R.string.create_order_row),
-        style = MaterialTheme.typography.labelLarge,
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        (1..rows).forEach { row ->
-            FilterChip(
-                selected = selected == row,
-                onClick = { onSelect(row) },
-                label = { Text(row.toString()) },
-            )
-        }
-    }
-}
-
-/** Сетка номеров электролизёров выбранного ряда (по половинам A/B). */
-@Composable
-private fun ElectrolyzerGrid(
-    scheme: Scheme,
-    row: Int,
-    selectedId: Int?,
-    onSelect: (Int) -> Unit,
-) {
-    val electrolyzers = scheme.electrolyzers.filter { it.row == row }
-    Box(
-        modifier = Modifier.horizontalScroll(rememberScrollState())
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            electrolyzers.chunked(5).forEach { line ->
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    line.forEach { electrolyzer ->
-                        ElectrolyzerCell(
-                            electrolyzer = electrolyzer,
-                            selected = electrolyzer.id == selectedId,
-                            onClick = { onSelect(electrolyzer.id) },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ElectrolyzerCell(
-    electrolyzer: Electrolyzer,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val background = if (selected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.surfaceVariant
-    }
-    val contentColor = if (selected) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    Box(
-        modifier = Modifier
-            .size(width = 64.dp, height = 56.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(background)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = electrolyzer.number.toString(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = contentColor,
-            )
-            Text(
-                text = electrolyzer.half,
-                style = MaterialTheme.typography.labelSmall,
-                color = contentColor,
-            )
         }
     }
 }

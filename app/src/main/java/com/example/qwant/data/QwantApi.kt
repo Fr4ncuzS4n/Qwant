@@ -4,11 +4,15 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.Serializable
@@ -18,13 +22,20 @@ import kotlinx.serialization.json.Json
  * Базовый адрес сервера (`server/`), берётся из [ServerConfig].
  *
  * Дефолт — `http://10.0.2.2:8080`: `10.0.2.2` это хост-машина из Android-эмулятора.
- * Приложение позволяет сменить адрес на экране выбора кабинета (порт/адрес
- * залипают в SharedPreferences и применяются без пересборки APK).
+ * Приложение позволяет сменить адрес на экране входа (адрес хранится в
+ * SharedPreferences и применяется без пересборки APK).
  */
 val BASE_URL: String get() = ServerConfig.baseUrl
 
+/** Корпус, открываемый по умолчанию (если список корпусов ещё не загружен). */
+const val DEFAULT_BUILDING = "4"
+
 /** Клиент REST API сервера. Тонкая обёртка над Ktor: только запросы, без логики. */
 object QwantApi {
+
+    /** Токен текущей сессии; задаётся при входе, сбрасывается при выходе. */
+    @Volatile
+    var authToken: String? = null
 
     private val client = HttpClient(Android) {
         install(ContentNegotiation) {
@@ -36,10 +47,10 @@ object QwantApi {
                 }
             )
         }
+        defaultRequest {
+            authToken?.let { header("X-Auth-Token", it) }
+        }
     }
-
-    @Serializable
-    data class AcceptRequest(val driverId: Int)
 
     @Serializable
     data class CreateOrderRequest(
@@ -57,13 +68,48 @@ object QwantApi {
         val motohoursDelta: Double? = null,
     )
 
+    /** Ошибка авторизации: неверный логин/пароль или истёкший токен. */
+    class UnauthorizedException(message: String) : Exception(message)
+
+    // --- авторизация ---
+
+    /**
+     * Вход в систему. При успехе сохраняет токен в [authToken] и возвращает
+     * данные пользователя; при неверных данных бросает [UnauthorizedException].
+     */
+    suspend fun login(login: String, password: String): LoginResponse {
+        val response = client.post("$BASE_URL/api/auth/login") {
+            contentType(ContentType.Application.Json)
+            setBody(LoginRequest(login = login, password = password))
+        }
+        if (response.status == HttpStatusCode.Unauthorized) {
+            throw UnauthorizedException("invalid credentials")
+        }
+        val body: LoginResponse = response.body()
+        authToken = body.token
+        return body
+    }
+
+    /** Выход: сервер удаляет сессию, токен сбрасывается. */
+    suspend fun logout() {
+        runCatching { client.post("$BASE_URL/api/auth/logout") }
+        authToken = null
+    }
+
+    suspend fun me(): UserAccount = client.get("$BASE_URL/api/auth/me").body()
+
+    // --- данные ---
+
     suspend fun health(): Health = client.get("$BASE_URL/api/health").body()
 
     suspend fun drivers(): List<Driver> = client.get("$BASE_URL/api/drivers").body()
 
     suspend fun equipment(): List<Equipment> = client.get("$BASE_URL/api/equipment").body()
 
-    suspend fun scheme(building: String = "4"): Scheme =
+    /** Корпуса цеха: выбор корпуса на экране схемы. */
+    suspend fun buildings(): List<Building> = client.get("$BASE_URL/api/buildings").body()
+
+    suspend fun scheme(building: String = DEFAULT_BUILDING): Scheme =
         client.get("$BASE_URL/api/scheme") { parameter("building", building) }.body()
 
     suspend fun tags(): List<DeviationTag> = client.get("$BASE_URL/api/tags").body()
@@ -84,12 +130,9 @@ object QwantApi {
 
     suspend fun order(id: Int): Order = client.get("$BASE_URL/api/orders/$id").body()
 
-    /** «Взять в работу» — переход NEW -> ACCEPTED. */
-    suspend fun acceptOrder(orderId: Int, driverId: Int): Order =
-        client.post("$BASE_URL/api/orders/$orderId/accept") {
-            contentType(ContentType.Application.Json)
-            setBody(AcceptRequest(driverId))
-        }.body()
+    /** «Взять в работу» — переход NEW -> ACCEPTED. Исполнитель известен серверу по токену. */
+    suspend fun acceptOrder(orderId: Int): Order =
+        client.post("$BASE_URL/api/orders/$orderId/accept").body()
 
     /** «Выполнено» — переход в DONE, при указании моточасов начисляет наработку технике. */
     suspend fun completeOrder(orderId: Int, request: CompleteRequest): Order =

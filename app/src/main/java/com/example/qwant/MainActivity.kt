@@ -5,46 +5,41 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.createGraph
 import androidx.navigation.navArgument
+import com.example.qwant.data.QwantApi
 import com.example.qwant.data.ServerConfig
 import com.example.qwant.data.SessionStore
+import com.example.qwant.data.UserSession
+import com.example.qwant.screens.AuthScreen
 import com.example.qwant.screens.CreateOrderScreen
 import com.example.qwant.screens.DispatcherScreen
 import com.example.qwant.screens.DriverScreen
-import com.example.qwant.screens.DriverSelectScreen
 import com.example.qwant.screens.GatesScreen
-import com.example.qwant.screens.MainScreen
 import com.example.qwant.screens.OrderScreen
+import com.example.qwant.screens.Routes
 import com.example.qwant.screens.SchemeScreen
 import com.example.qwant.screens.StatisticScreen
 import com.example.qwant.ui.theme.QwantTheme
-
-/** Маршруты навигации приложения. */
-object Routes {
-    const val MAIN = "main"
-    const val DRIVER_SELECT = "driver_select"
-    const val DRIVER = "driver"
-    const val DISPATCHER = "dispatcher"
-    const val CREATE_ORDER = "create_order"
-    const val ORDER = "order/{orderId}"
-    const val SCHEME = "scheme"
-    const val GATES = "gates"
-    const val STATS = "stats"
-
-    fun order(id: Int) = "order/$id"
-}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Адрес сервера читается до первого запроса API.
+        // Адрес сервера и токен сессии читаются до первого запроса API.
         ServerConfig.init(this)
+        QwantApi.authToken = SessionStore.session(this)?.token
         setContent {
             QwantTheme {
                 QwantApp()
@@ -53,120 +48,145 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Клиент-серверное приложение: два личных кабинета — водителя и диспетчера. */
+/**
+ * Клиент-серверное приложение с разграничением ролей:
+ * диспетчер и водитель входят под своим логином и видят только свои экраны.
+ */
 @Composable
 private fun QwantApp() {
-    val navController = rememberNavController()
     val context = LocalContext.current
+    val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = Routes.MAIN) {
+    // Сессия — источник истины для навигации по ролям. Храним её в State и читаем
+    // **внутри** экранов: граф навигации строится один раз, а доступ по роли
+    // всегда проверяется по актуальной сессии. Если передать значение сессии,
+    // то сразу после входа проверка сработает по устаревшему (пустому) значению
+    // и пользователя вернёт на экран входа — приходилось входить дважды.
+    val session = remember { mutableStateOf(SessionStore.session(context)) }
 
-        composable(Routes.MAIN) {
-            MainScreen(
-                onOpenDriver = {
-                    val destination = if (SessionStore.isDriverSelected(context)) {
-                        Routes.DRIVER
-                    } else {
-                        Routes.DRIVER_SELECT
-                    }
-                    navController.navigate(destination)
-                },
-                onOpenDispatcher = { navController.navigate(Routes.DISPATCHER) },
-            )
+    fun logout() {
+        SessionStore.clear(context)
+        QwantApi.authToken = null
+        session.value = null
+        navController.navigate(Routes.AUTH) {
+            popUpTo(navController.graph.id) { inclusive = true }
+            launchSingleTop = true
         }
+    }
 
-        composable(Routes.DRIVER_SELECT) {
-            DriverSelectScreen(
-                onDriverSelected = { driver ->
-                    SessionStore.saveDriver(
-                        context = context,
-                        id = driver.id,
-                        name = driver.name,
-                        equipmentName = driver.equipmentName,
-                    )
-                    navController.navigate(Routes.DRIVER) {
-                        popUpTo(Routes.MAIN)
-                    }
-                },
-                onBack = { navController.popBackStack() },
-            )
-        }
-
-        composable(Routes.DRIVER) {
-            val driverId = SessionStore.driverId(context)
-            if (driverId <= 0) {
-                // Сессия сброшена — возвращаемся к выбору водителя.
-                DriverSelectScreen(
-                    onDriverSelected = { driver ->
-                        SessionStore.saveDriver(
-                            context = context,
-                            id = driver.id,
-                            name = driver.name,
-                            equipmentName = driver.equipmentName,
-                        )
-                    },
-                    onBack = { navController.popBackStack() },
-                )
-            } else {
-                DriverScreen(
-                    driverId = driverId,
-                    driverName = SessionStore.driverName(context),
-                    equipmentName = SessionStore.equipmentName(context),
-                    onOpenOrder = { id -> navController.navigate(Routes.order(id)) },
-                    onOpenScheme = { navController.navigate(Routes.SCHEME) },
-                    onOpenGates = { navController.navigate(Routes.GATES) },
-                    onOpenStats = { navController.navigate(Routes.STATS) },
-                    onChangeDriver = {
-                        SessionStore.clearDriver(context)
-                        navController.navigate(Routes.DRIVER_SELECT) {
-                            popUpTo(Routes.MAIN)
+    // Граф создаётся один раз; стартовый экран — по сессии на момент запуска.
+    val graph = remember(navController) {
+        navController.createGraph(
+            startDestination = Routes.startFor(session.value?.role),
+        ) {
+            composable(Routes.AUTH) {
+                AuthScreen(
+                    onLoggedIn = { role ->
+                        // Токен и данные учётной записи экран входа уже сохранил.
+                        session.value = SessionStore.session(context)
+                        navController.navigate(Routes.homeFor(role)) {
+                            popUpTo(Routes.AUTH) { inclusive = true }
+                            launchSingleTop = true
                         }
                     },
                 )
             }
-        }
 
-        composable(Routes.DISPATCHER) {
-            DispatcherScreen(
-                onCreateOrder = { navController.navigate(Routes.CREATE_ORDER) },
-                onOpenOrder = { id -> navController.navigate(Routes.order(id)) },
-                onOpenScheme = { navController.navigate(Routes.SCHEME) },
-                onOpenGates = { navController.navigate(Routes.GATES) },
-                onOpenStats = { navController.navigate(Routes.STATS) },
-                onBack = { navController.popBackStack() },
-            )
-        }
+            // --- кабинет водителя (только DRIVER) ---
+            guardedComposable(Routes.DRIVER, session, navController) { current ->
+                val driverId = current?.driverId
+                if (driverId == null) {
+                    // Учётная запись без привязанной техники — возвращаемся ко входу.
+                    LaunchedEffect(Unit) { logout() }
+                } else {
+                    DriverScreen(
+                        driverId = driverId,
+                        driverName = current.driverName ?: current.name,
+                        equipmentName = current.equipmentName,
+                        onOpenOrder = { id -> navController.navigate(Routes.order(id)) },
+                        onOpenScheme = { navController.navigate(Routes.SCHEME) },
+                        onOpenGates = { navController.navigate(Routes.GATES) },
+                        onOpenStats = { navController.navigate(Routes.STATS) },
+                        onLogout = { logout() },
+                    )
+                }
+            }
 
-        composable(Routes.CREATE_ORDER) {
-            CreateOrderScreen(
-                onBack = { navController.popBackStack() },
-                onCreated = { navController.popBackStack() },
-            )
-        }
+            // --- кабинет диспетчера (только DISPATCHER) ---
+            guardedComposable(Routes.DISPATCHER, session, navController) { current ->
+                DispatcherScreen(
+                    dispatcherName = current?.name.orEmpty(),
+                    onCreateOrder = { navController.navigate(Routes.CREATE_ORDER) },
+                    onOpenOrder = { id -> navController.navigate(Routes.order(id)) },
+                    onOpenScheme = { navController.navigate(Routes.SCHEME) },
+                    onOpenGates = { navController.navigate(Routes.GATES) },
+                    onOpenStats = { navController.navigate(Routes.STATS) },
+                    onLogout = { logout() },
+                )
+            }
 
-        composable(
-            route = Routes.ORDER,
-            arguments = listOf(navArgument("orderId") { type = NavType.IntType }),
-        ) { entry ->
-            OrderScreen(
-                orderId = entry.arguments?.getInt("orderId") ?: 0,
-                onBack = { navController.popBackStack() },
-            )
-        }
+            guardedComposable(Routes.CREATE_ORDER, session, navController) { current ->
+                CreateOrderScreen(
+                    requestedBy = current?.name.orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onCreated = { navController.popBackStack() },
+                )
+            }
 
-        composable(Routes.SCHEME) {
-            SchemeScreen(
-                onBack = { navController.popBackStack() },
-                onOpenGates = { navController.navigate(Routes.GATES) },
-            )
-        }
+            composable(
+                route = Routes.ORDER,
+                arguments = listOf(navArgument("orderId") { type = NavType.IntType }),
+            ) { entry ->
+                OrderScreen(
+                    orderId = entry.arguments?.getInt("orderId") ?: 0,
+                    onBack = { navController.popBackStack() },
+                )
+            }
 
-        composable(Routes.GATES) {
-            GatesScreen(onBack = { navController.popBackStack() })
-        }
+            composable(Routes.SCHEME) {
+                SchemeScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenGates = { navController.navigate(Routes.GATES) },
+                )
+            }
 
-        composable(Routes.STATS) {
-            StatisticScreen(onBack = { navController.popBackStack() })
+            composable(Routes.GATES) {
+                GatesScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.STATS) {
+                StatisticScreen(onBack = { navController.popBackStack() })
+            }
+        }
+    }
+
+    NavHost(navController = navController, graph = graph)
+}
+
+/**
+ * Экранированный маршрут: если роль не имеет доступа, пользователь
+ * перенаправляется на свой домашний экран (или на вход).
+ *
+ * Сессия передаётся как [State] и читается **при отрисовке экрана** — так проверка
+ * всегда видит актуальную роль, а не значение на момент построения графа.
+ */
+private fun NavGraphBuilder.guardedComposable(
+    route: String,
+    session: State<UserSession?>,
+    navController: NavHostController,
+    content: @Composable (UserSession?) -> Unit,
+) {
+    composable(route) {
+        val current = session.value
+        if (Routes.isAllowed(current?.role, route)) {
+            content(current)
+        } else {
+            LaunchedEffect(current) {
+                navController.navigate(Routes.startFor(current?.role)) {
+                    popUpTo(navController.graph.id) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
         }
     }
 }

@@ -29,6 +29,27 @@ object Urgency {
     const val RED = "RED"       // через 15 минут
 }
 
+object Role {
+    const val DRIVER = "DRIVER"         // водитель: взять в работу / выполнить
+    const val DISPATCHER = "DISPATCHER" // диспетчер: постановка заявок и контроль
+}
+
+/** Учётная запись пользователя (для ответа логина — без секретов). */
+data class UserAccount(
+    val id: Int,
+    val login: String,
+    val name: String,
+    val role: String,
+    val driverId: Int? = null,
+    val driverName: String? = null,
+    val equipmentName: String? = null,
+    val equipmentType: String? = null,
+)
+
+data class LoginRequest(val login: String? = null, val password: String? = null)
+
+data class LoginResponse(val token: String, val user: UserAccount)
+
 data class Equipment(
     val id: Int,
     val name: String,
@@ -108,6 +129,20 @@ data class Order(
     val completedAt: String?,
     val elapsedMinutes: Long?,
     val urgency: String?,
+)
+
+/**
+ * Корпус (здание) цеха: своя раскладка электролизёров и свой единственный вход
+ * (слева или справа). `isDefault` — корпус, который клиент открывает по умолчанию.
+ */
+data class Building(
+    val id: String,
+    val name: String,
+    val rows: Int,
+    val perRow: Int,
+    val halfSize: Int,
+    val electrolyzerCount: Int,
+    val isDefault: Boolean,
 )
 
 data class Scheme(

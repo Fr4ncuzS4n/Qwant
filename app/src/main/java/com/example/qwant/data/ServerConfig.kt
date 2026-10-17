@@ -4,45 +4,36 @@ import android.content.Context
 import androidx.core.content.edit
 
 /**
- * Адрес сервера, настраиваемый прямо в приложении (экран выбора кабинета).
- *
- * Дефолт — `10.0.2.2:8080` (host-машина из Android-эмулятора).
- * Если 8080 на машине занят или сервер поднят на другом порту/адресе —
- * адрес можно поменять без пересборки APK.
+ * Адрес сервера (`server/`). По умолчанию — `http://10.0.2.2:8080`
+ * (хост-машина из Android-эмулятора). Настраивается в приложении на экране
+ * входа и сохраняется в SharedPreferences — без пересборки APK.
  */
 object ServerConfig {
 
-    /** Порт и адрес по умолчанию — совпадают с дефолтом сервера (`server/`). */
-    const val DEFAULT_URL = "http://10.0.2.2:8080"
+    const val DEFAULT_BASE_URL = "http://10.0.2.2:8080"
 
     private const val PREFS = "qwant_server"
     private const val KEY_URL = "base_url"
 
+    /** Текущий адрес сервера; читается [QwantApi] перед каждым запросом. */
     @Volatile
-    var baseUrl: String = DEFAULT_URL
+    var baseUrl: String = DEFAULT_BASE_URL
         private set
 
+    /** Вызывается из `MainActivity.onCreate` до первого запроса API. */
     fun init(context: Context) {
-        val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_URL, null)
-        baseUrl = normalize(stored ?: DEFAULT_URL)
+        baseUrl = normalize(prefs(context).getString(KEY_URL, DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL)
     }
 
+    /** Сохранить адрес (без завершающего «/»). */
     fun save(context: Context, url: String) {
         val normalized = normalize(url)
+        prefs(context).edit { putString(KEY_URL, normalized) }
         baseUrl = normalized
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            putString(KEY_URL, normalized)
-        }
     }
 
-    /** Убирает пробелы/хвостовой слэш, добавляет схему, если её забыли. */
-    private fun normalize(url: String): String {
-        var result = url.trim().trimEnd('/')
-        if (result.isEmpty()) return DEFAULT_URL
-        if (!result.startsWith("http://") && !result.startsWith("https://")) {
-            result = "http://$result"
-        }
-        return result
-    }
+    private fun prefs(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun normalize(url: String): String = url.trim().trimEnd('/')
 }

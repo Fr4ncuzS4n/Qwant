@@ -11,16 +11,21 @@
     <string name="menu_scheme">Схема</string>
     <string name="menu_gates">Ворота</string>
     <string name="menu_stats">Статистика</string>
+    <string name="logout">Выйти</string>
 
-    <!-- Выбор кабинета -->
+    <!-- Вход и роли -->
     <string name="role_title">Qwant</string>
     <string name="role_subtitle">Водители дизельной техники · электролизный цех</string>
-    <string name="role_driver">Водитель</string>
-    <string name="role_driver_desc">Новая заявка — «Взять в работу», по окончании — «Выполнено».</string>
-    <string name="role_dispatcher">Диспетчер</string>
-    <string name="role_dispatcher_desc">Постановка заявок, контроль времени исполнения и статистика наработки.</string>
-    <string name="role_enter">Войти</string>
-    <string name="role_hint">Сервер: ./gradlew -p server run · адрес для эмулятора 10.0.2.2:8080</string>
+    <string name="auth_title">Вход в систему</string>
+    <string name="auth_login">Логин</string>
+    <string name="auth_password">Пароль</string>
+    <string name="auth_submit">Войти</string>
+    <string name="auth_show_password">Показать</string>
+    <string name="auth_hide_password">Скрыть</string>
+    <string name="auth_error_required">Введите логин и пароль</string>
+    <string name="auth_error_invalid">Неверный логин или пароль</string>
+    <string name="auth_error_network">Сервер недоступен. Проверьте адрес сервера.</string>
+    <string name="auth_demo">Демо-доступ: dispatcher / 1234 · водители: ivanov, petrov, sidorov, kuznetsov</string>
     <string name="server_checking">Проверка связи с сервером…</string>
     <string name="server_available">Сервер доступен</string>
     <string name="server_unavailable">Сервер недоступен</string>
@@ -31,15 +36,9 @@
     <string name="server_check">Проверить</string>
     <string name="server_save">Сохранить</string>
     <string name="server_cancel">Отмена</string>
-    <string name="server_check_hint">Укажите адрес, на котором запущен сервер, и нажмите «Проверить».</string>
     <string name="server_default_hint">Эмулятор: http://10.0.2.2:8080 · планшет: http://IP-компьютера:порт</string>
 
     <!-- Кабинет водителя -->
-    <string name="driver_select_title">Выбор водителя</string>
-    <string name="driver_select_subtitle">Выберите себя в списке — техника подтянется из базы</string>
-    <string name="driver_no_equipment">Техника не закреплена</string>
-    <string name="driver_equipment_type">Тип техники: %1$s</string>
-    <string name="driver_change">Сменить</string>
     <string name="driver_cabinet_title">Кабинет водителя</string>
     <string name="driver_my_order">Моя заявка</string>
     <string name="driver_no_active_order">Активных заявок нет</string>
@@ -56,7 +55,7 @@
     <string name="order_quick_tags">Быстрые теги отклонений</string>
     <string name="order_motohours_label">Наработка, моточасы</string>
     <string name="order_type">Тип</string>
-    <string name="order_row">Ряд</string>
+    <string name="order_row">Линия</string>
     <string name="order_half">Половина</string>
     <string name="order_half_value">Половина %1$s</string>
     <string name="order_driver">Исполнитель</string>
@@ -103,7 +102,6 @@
     <string name="create_order_title">Новая заявка</string>
     <string name="create_order_subtitle">Тип заявки и электролизёр на схеме корпуса</string>
     <string name="create_order_electrolyzer">Электролизёр на схеме</string>
-    <string name="create_order_row">Ряд</string>
     <string name="create_order_selected">Выбран электролизёр №%1$d</string>
     <string name="create_order_select_hint">Выберите электролизёр на схеме</string>
     <string name="create_order_description">Описание</string>
@@ -112,17 +110,34 @@
 
     <!-- Схема корпуса -->
     <string name="scheme_title">Схема корпуса</string>
-    <string name="scheme_subtitle">Электролизёры, опасные зоны, тупики и ворота</string>
+    <string name="scheme_subtitle_building">Корпус %1$s · электролизёры, опасные зоны, тупики и ворота</string>
+    <string name="scheme_building_title">Корпус</string>
+    <string name="scheme_building_chip">Корпус %1$s · %2$d эл.</string>
     <string name="scheme_selected_title">Выбранный электролизёр</string>
-    <string name="scheme_selected_value">Электролизёр №%1$d · ряд %2$d, половина %3$s · %4$s</string>
+    <string name="scheme_selected_value">Электролизёр №%1$d · линия %2$d, половина %3$s · %4$s</string>
     <string name="scheme_status_ok">Исправен</string>
     <string name="scheme_status_service">Обслуживание</string>
     <string name="scheme_legend_title">Обозначения</string>
     <string name="scheme_legend_danger">Опасная зона</string>
     <string name="scheme_legend_dead_end">Тупик</string>
     <string name="scheme_legend_gate_open">Ворота открыты</string>
-    <string name="scheme_summary">Всего электролизёров: %1$d · рядов: %2$d · в половине: %3$d</string>
+    <string name="scheme_summary">Корпус %1$s: электролизёров %2$d · линий %3$d · в половине %4$d · в линии %5$d</string>
     <string name="scheme_gates_title">Ворота корпуса</string>
+    <string name="scheme_plan_title">Корпус целиком</string>
+    <string name="scheme_lane_turn">Дорога вдоль стены для выезда к воротам</string>
+    <string name="scheme_lane_side">Дорога вдоль стены (выезд к воротам)</string>
+    <string name="scheme_lane_aisle">Центральная дорога (разворот к электролизёрам)</string>
+    <string name="scheme_entrance">Вход</string>
+    <string name="scheme_legend_block">Рамка электролизёра</string>
+    <string name="scheme_legend_passage">Проход между электролизёрами (проходим)</string>
+    <string name="scheme_legend_entrance">Единственный вход в корпус</string>
+    <string name="scheme_entrance_left">Единственный вход в корпус — слева</string>
+    <string name="scheme_entrance_right">Единственный вход в корпус — справа</string>
+    <string name="scheme_fragment_rows">Линии %1$d–%2$d из %3$d</string>
+    <string name="scheme_fragment_cols">Электролизёры %1$d–%2$d из %3$d</string>
+    <string name="scheme_zones_title">Опасные зоны и тупики</string>
+    <string name="scheme_legend_lane">Центральная дорога</string>
+    <string name="scheme_legend_wall_road">Дорога вдоль стены</string>
 
     <!-- Ворота -->
     <string name="gates_title">Ворота</string>
