@@ -25,8 +25,6 @@ data class AuthUiState(
     val error: AuthError? = null,
     /** Заполняется при успешном входе — экран сохраняет сессию и переходит дальше. */
     val loggedIn: LoginResponse? = null,
-    val checkingServer: Boolean = true,
-    val serverOnline: Boolean = false,
 ) {
     val canSubmit: Boolean
         get() = login.isNotBlank() && password.isNotBlank() && !submitting
@@ -35,22 +33,17 @@ data class AuthUiState(
 /**
  * Состояние экрана входа.
  *
- * Зависимости ([loginCall], [healthCheck]) передаются в конструктор — это
- * позволяет тестировать ViewModel без сервера и без Android-контекста.
+ * [loginCall] передаётся в конструктор — это позволяет тестировать ViewModel
+ * без сервера и без Android-контекста.
  */
 class AuthViewModel(
     private val loginCall: suspend (String, String) -> LoginResponse = { login, password ->
         QwantApi.login(login, password)
     },
-    private val healthCheck: suspend () -> Boolean = { QwantApi.health().status == "ok" },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
-
-    init {
-        checkServer()
-    }
 
     fun updateLogin(value: String) {
         _state.update { it.copy(login = value, error = null) }
@@ -62,15 +55,6 @@ class AuthViewModel(
 
     fun togglePasswordVisibility() {
         _state.update { it.copy(passwordVisible = !it.passwordVisible) }
-    }
-
-    /** Проверка доступности сервера (индикатор на экране входа). */
-    fun checkServer() {
-        _state.update { it.copy(checkingServer = true) }
-        viewModelScope.launch {
-            val online = runCatching { healthCheck() }.getOrDefault(false)
-            _state.update { it.copy(checkingServer = false, serverOnline = online) }
-        }
     }
 
     /** Вход: логин/пароль -> сессия. Успех кладёт [AuthUiState.loggedIn]. */

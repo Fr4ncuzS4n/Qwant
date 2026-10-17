@@ -38,6 +38,12 @@
     <string name="server_cancel">Отмена</string>
     <string name="server_default_hint">Эмулятор: http://10.0.2.2:8080 · планшет: http://IP-компьютера:порт</string>
 
+    <!-- Экран «Для разработчика» -->
+    <string name="developer_title">Для разработчика</string>
+    <string name="developer_subtitle">Подключение к серверу и диагностика</string>
+    <string name="developer_open">Для разработчика</string>
+    <string name="developer_hint">Адрес сервера хранится в настройках приложения — менять его можно без пересборки APK. Для эмулятора: http://10.0.2.2:8080, для планшета: http://IP-компьютера:порт.</string>
+
     <!-- Кабинет водителя -->
     <string name="driver_cabinet_title">Кабинет водителя</string>
     <string name="driver_my_order">Моя заявка</string>

@@ -16,10 +16,11 @@ import com.example.qwant.ui.theme.QwantTheme
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
-/** Тесты экрана входа: поля, кнопка, ошибки и успешный вход. */
+/** Тесты экрана входа: поля, кнопка, ошибки, успешный вход и переход к настройке сервера. */
 class AuthScreenTest {
 
     @get:Rule
@@ -28,17 +29,22 @@ class AuthScreenTest {
     private fun show(
         viewModel: AuthViewModel,
         onLoggedIn: (String) -> Unit = {},
+        onOpenDeveloper: () -> Unit = {},
     ) {
         rule.setContent {
             QwantTheme {
-                AuthScreen(onLoggedIn = onLoggedIn, viewModel = viewModel)
+                AuthScreen(
+                    onLoggedIn = onLoggedIn,
+                    onOpenDeveloper = onOpenDeveloper,
+                    viewModel = viewModel,
+                )
             }
         }
     }
 
     @Test
     fun loginScreenShowsBrandedFieldsAndDisabledSubmit() {
-        show(AuthViewModel(loginCall = { _, _ -> TestData.driverLogin() }, healthCheck = { true }))
+        show(AuthViewModel(loginCall = { _, _ -> TestData.driverLogin() }))
 
         rule.onNodeWithText("Вход в систему").assertExists()
         rule.onNodeWithTag(AuthTags.LOGIN).assertExists()
@@ -49,7 +55,7 @@ class AuthScreenTest {
 
     @Test
     fun submitBecomesEnabledAfterFillingBothFields() {
-        show(AuthViewModel(loginCall = { _, _ -> TestData.driverLogin() }, healthCheck = { true }))
+        show(AuthViewModel(loginCall = { _, _ -> TestData.driverLogin() }))
 
         rule.onNodeWithTag(AuthTags.LOGIN).performTextInput("ivanov")
         rule.onNodeWithTag(AuthTags.SUBMIT).assertIsNotEnabled() // пароль ещё пуст
@@ -62,7 +68,6 @@ class AuthScreenTest {
         show(
             AuthViewModel(
                 loginCall = { _, _ -> throw QwantApi.UnauthorizedException("invalid") },
-                healthCheck = { true },
             )
         )
 
@@ -80,7 +85,7 @@ class AuthScreenTest {
     fun successfulLoginReportsTheRoleUpwards() {
         val role = AtomicReference<String?>(null)
         show(
-            viewModel = AuthViewModel(loginCall = { _, _ -> TestData.dispatcherLogin() }, healthCheck = { true }),
+            viewModel = AuthViewModel(loginCall = { _, _ -> TestData.dispatcherLogin() }),
             onLoggedIn = { role.set(it) },
         )
 
@@ -97,7 +102,6 @@ class AuthScreenTest {
         show(
             AuthViewModel(
                 loginCall = { _, _ -> throw IOException("connection refused") },
-                healthCheck = { false },
             )
         )
 
@@ -109,6 +113,18 @@ class AuthScreenTest {
             rule.onAllNodesWithTagSafe(AuthTags.ERROR)
         }
         rule.onNodeWithText("Сервер недоступен. Проверьте адрес сервера.").assertExists()
+    }
+
+    @Test
+    fun developerButtonOpensTheDeveloperScreen() {
+        var opened = false
+        show(
+            viewModel = AuthViewModel(loginCall = { _, _ -> TestData.driverLogin() }),
+            onOpenDeveloper = { opened = true },
+        )
+
+        rule.onNodeWithTag(AuthTags.DEVELOPER).performClick()
+        assertTrue(opened)
     }
 }
 

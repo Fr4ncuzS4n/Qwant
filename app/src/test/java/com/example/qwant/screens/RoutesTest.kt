@@ -74,6 +74,13 @@ class RoutesTest {
     }
 
     @Test
+    fun `developer screen is reachable without a session`() {
+        assertTrue(Routes.isAllowed(null, Routes.DEVELOPER))
+        assertTrue(Routes.isAllowed(Role.DRIVER, Routes.DEVELOPER))
+        assertTrue(Routes.isAllowed(Role.DISPATCHER, Routes.DEVELOPER))
+    }
+
+    @Test
     fun `order route is built with the id`() {
         assertEquals("order/125", Routes.order(125))
     }

@@ -24,6 +24,7 @@ import com.example.qwant.data.SessionStore
 import com.example.qwant.data.UserSession
 import com.example.qwant.screens.AuthScreen
 import com.example.qwant.screens.CreateOrderScreen
+import com.example.qwant.screens.DeveloperScreen
 import com.example.qwant.screens.DispatcherScreen
 import com.example.qwant.screens.DriverScreen
 import com.example.qwant.screens.GatesScreen
@@ -89,7 +90,13 @@ private fun QwantApp() {
                             launchSingleTop = true
                         }
                     },
+                    onOpenDeveloper = { navController.navigate(Routes.DEVELOPER) },
                 )
+            }
+
+            // Служебный экран настройки сервера (доступен без входа).
+            composable(Routes.DEVELOPER) {
+                DeveloperScreen(onBack = { navController.popBackStack() })
             }
 
             // --- кабинет водителя (только DRIVER) ---

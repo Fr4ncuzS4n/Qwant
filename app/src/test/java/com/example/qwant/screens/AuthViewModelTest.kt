@@ -20,8 +20,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * Юнит-тесты состояния экрана входа: успех, неверные данные, сеть,
- * валидация пустых полей и проверка связи с сервером.
+ * Юнит-тесты состояния экрана входа: успех, неверные данные, сеть
+ * и валидация пустых полей.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthViewModelTest {
@@ -54,7 +54,7 @@ class AuthViewModelTest {
 
     @Test
     fun `successful login exposes session and role`() = runTest {
-        val viewModel = AuthViewModel(loginCall = { _, _ -> driverResponse() }, healthCheck = { true })
+        val viewModel = AuthViewModel(loginCall = { _, _ -> driverResponse() })
 
         viewModel.updateLogin("ivanov")
         viewModel.updatePassword("1234")
@@ -75,7 +75,6 @@ class AuthViewModelTest {
     fun `invalid credentials are reported`() = runTest {
         val viewModel = AuthViewModel(
             loginCall = { _, _ -> throw QwantApi.UnauthorizedException("invalid credentials") },
-            healthCheck = { true },
         )
 
         viewModel.updateLogin("ivanov")
@@ -91,7 +90,6 @@ class AuthViewModelTest {
     fun `network failure is reported`() = runTest {
         val viewModel = AuthViewModel(
             loginCall = { _, _ -> throw java.io.IOException("connection refused") },
-            healthCheck = { true },
         )
 
         viewModel.updateLogin("ivanov")
@@ -107,7 +105,6 @@ class AuthViewModelTest {
         var called = false
         val viewModel = AuthViewModel(
             loginCall = { _, _ -> called = true; driverResponse() },
-            healthCheck = { true },
         )
 
         viewModel.updateLogin("   ")
@@ -123,7 +120,7 @@ class AuthViewModelTest {
 
     @Test
     fun `password visibility toggles`() {
-        val viewModel = AuthViewModel(loginCall = { _, _ -> driverResponse() }, healthCheck = { true })
+        val viewModel = AuthViewModel(loginCall = { _, _ -> driverResponse() })
         assertFalse(viewModel.state.value.passwordVisible)
         viewModel.togglePasswordVisibility()
         assertTrue(viewModel.state.value.passwordVisible)
@@ -132,23 +129,9 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `server check reflects availability`() = runTest {
-        val online = AuthViewModel(loginCall = { _, _ -> driverResponse() }, healthCheck = { true })
-        advanceUntilIdle()
-        assertTrue(online.state.value.serverOnline)
-        assertFalse(online.state.value.checkingServer)
-
-        val offline = AuthViewModel(loginCall = { _, _ -> driverResponse() }, healthCheck = { false })
-        advanceUntilIdle()
-        assertFalse(offline.state.value.serverOnline)
-        assertFalse(offline.state.value.checkingServer)
-    }
-
-    @Test
     fun `editing a field clears the previous error`() = runTest {
         val viewModel = AuthViewModel(
             loginCall = { _, _ -> throw QwantApi.UnauthorizedException("x") },
-            healthCheck = { true },
         )
         viewModel.updateLogin("ivanov")
         viewModel.updatePassword("wrong")
