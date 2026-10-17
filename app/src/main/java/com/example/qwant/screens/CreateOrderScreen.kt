@@ -27,20 +27,26 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.qwant.R
+import com.example.qwant.data.Order
 import com.example.qwant.data.OrderType
+import com.example.qwant.ui.BuildingPicker
 import com.example.qwant.ui.ErrorBox
+import com.example.qwant.ui.HallFormat
 import com.example.qwant.ui.HallLayout
 import com.example.qwant.ui.HallSchemeCanvas
 import com.example.qwant.ui.LoadingBox
 import com.example.qwant.ui.QwantTopBar
-import com.example.qwant.ui.SchemeFragmentControls
 import com.example.qwant.ui.SectionCard
 import com.example.qwant.ui.orderTypeTitle
 import com.example.qwant.ui.rememberHallFormat
 
 /**
- * Постановка заявки диспетчером: тип заявки, электролизёр на схеме корпуса
- * (тот же фрагмент цеха с проездами техники), описание и заказчик.
+ * Постановка заявки диспетчером: **корпус** (куда отправить водителя), тип заявки,
+ * электролизёр на схеме выбранного корпуса (тот же фрагмент цеха с проездами
+ * техники), описание и заказчик.
+ *
+ * Корпус можно сменить в любой момент — схема и выбранный электролизёр
+ * пересчитываются под выбранный корпус.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,99 +70,135 @@ fun CreateOrderScreen(
             )
         }
     ) { innerPadding ->
-        when {
-            state.loading -> LoadingBox(Modifier.padding(innerPadding))
-            state.error != null -> ErrorBox(
-                message = state.error!!,
-                onRetry = viewModel::load,
-                modifier = Modifier.padding(innerPadding),
-            )
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+        ) {
+            // Выбор корпуса доступен всегда, в том числе пока грузится схема.
+            if (state.buildings.size > 1) {
+                BuildingPicker(
+                    title = stringResource(R.string.create_order_building),
+                    buildings = state.buildings,
+                    selectedId = state.buildingId,
+                    onSelect = viewModel::selectBuilding,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
 
-            else -> Column(
+            when {
+                state.scheme != null -> CreateOrderForm(
+                    state = state,
+                    format = format,
+                    viewModel = viewModel,
+                    onSubmit = { result -> result.onSuccess { onCreated(it.id) } },
+                    modifier = Modifier.weight(1f),
+                )
+
+                state.error != null -> ErrorBox(
+                    message = state.error!!,
+                    onRetry = viewModel::load,
+                    modifier = Modifier.weight(1f),
+                )
+
+                else -> LoadingBox(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** Форма заявки: тип, электролизёр на схеме корпуса, описание и заказчик. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CreateOrderForm(
+    state: CreateOrderUiState,
+    format: HallFormat,
+    viewModel: CreateOrderViewModel,
+    onSubmit: (Result<Order>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            // Клавиатура не перекрывает поля ввода: прокрутка до клавиатуры.
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SectionCard(title = stringResource(R.string.order_type)) {
+            Row(
                 modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-                    // Клавиатура не перекрывает поля ввода: прокрутка до клавиатуры.
-                    .imePadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SectionCard(title = stringResource(R.string.order_type)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf(OrderType.OBRABOTKA, OrderType.PODSYPKA, OrderType.REMONT).forEach { type ->
-                            FilterChip(
-                                selected = state.type == type,
-                                onClick = { viewModel.selectType(type) },
-                                label = { Text(orderTypeTitle(type)) },
-                            )
-                        }
-                    }
-                }
-
-                SectionCard(title = stringResource(R.string.create_order_electrolyzer)) {
-                    state.scheme?.let { scheme ->
-                        val layout = remember(scheme.rows, scheme.perRow, format) {
-                            HallLayout.of(scheme, format)
-                        }
-                        val fragment = remember(layout) { layout.fullFragment() }
-                        LaunchedEffect(layout) {
-                            if (state.fragment == null) viewModel.showFragment(fragment)
-                        }
-                        HallSchemeCanvas(
-                            scheme = scheme,
-                            layout = layout,
-                            fragment = fragment,
-                            selectedId = state.electrolyzerId,
-                            onElectrolyzerTap = viewModel::selectElectrolyzer,
-                            onGateTap = { _ -> },
-                        )
-                        Text(
-                            text = state.electrolyzerId?.let {
-                                stringResource(R.string.create_order_selected, it)
-                            } ?: stringResource(R.string.create_order_select_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                OutlinedTextField(
-                    value = state.description,
-                    onValueChange = viewModel::updateDescription,
-                    label = { Text(stringResource(R.string.create_order_description)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                )
-
-                OutlinedTextField(
-                    value = state.requestedBy,
-                    onValueChange = viewModel::updateRequestedBy,
-                    label = { Text(stringResource(R.string.create_order_requested_by)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Button(
-                    onClick = {
-                        viewModel.submit { result ->
-                            result.onSuccess { order -> onCreated(order.id) }
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state.electrolyzerId != null && !state.submitting,
-                ) {
-                    Text(
-                        text = stringResource(R.string.create_order_submit),
-                        style = MaterialTheme.typography.titleMedium,
+                listOf(OrderType.OBRABOTKA, OrderType.PODSYPKA, OrderType.REMONT).forEach { type ->
+                    FilterChip(
+                        selected = state.type == type,
+                        onClick = { viewModel.selectType(type) },
+                        label = { Text(orderTypeTitle(type)) },
                     )
                 }
             }
+        }
+
+        SectionCard(title = stringResource(R.string.create_order_electrolyzer)) {
+            state.scheme?.let { scheme ->
+                val layout = remember(scheme.rows, scheme.perRow, format) {
+                    HallLayout.of(scheme, format)
+                }
+                val fragment = remember(layout) { layout.fullFragment() }
+                LaunchedEffect(layout) {
+                    if (state.fragment == null) viewModel.showFragment(fragment)
+                }
+                HallSchemeCanvas(
+                    scheme = scheme,
+                    layout = layout,
+                    fragment = fragment,
+                    selectedId = state.electrolyzerId,
+                    onElectrolyzerTap = viewModel::selectElectrolyzer,
+                    onGateTap = { _ -> },
+                )
+                Text(
+                    text = state.electrolyzerId?.let {
+                        stringResource(
+                            R.string.create_order_selected,
+                            it,
+                            scheme.building,
+                        )
+                    } ?: stringResource(R.string.create_order_select_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        OutlinedTextField(
+            value = state.description,
+            onValueChange = viewModel::updateDescription,
+            label = { Text(stringResource(R.string.create_order_description)) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+        )
+
+        OutlinedTextField(
+            value = state.requestedBy,
+            onValueChange = viewModel::updateRequestedBy,
+            label = { Text(stringResource(R.string.create_order_requested_by)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Button(
+            onClick = { viewModel.submit(onSubmit) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = state.electrolyzerId != null && !state.submitting,
+        ) {
+            Text(
+                text = stringResource(R.string.create_order_submit),
+                style = MaterialTheme.typography.titleMedium,
+            )
         }
     }
 }

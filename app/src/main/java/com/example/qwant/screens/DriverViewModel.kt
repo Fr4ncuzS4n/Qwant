@@ -3,6 +3,8 @@ package com.example.qwant.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.qwant.data.DeviationTag
+import com.example.qwant.data.Driver
+import com.example.qwant.data.Equipment
 import com.example.qwant.data.Order
 import com.example.qwant.data.OrderStatus
 import com.example.qwant.data.QwantApi
@@ -18,6 +20,8 @@ data class DriverUiState(
     val newOrders: List<Order> = emptyList(),
     val myOrders: List<Order> = emptyList(),
     val tags: List<DeviationTag> = emptyList(),
+    /** Техника исполнителя (карточка «Машина»): модель и наработка. */
+    val equipment: Equipment? = null,
     val busy: Boolean = false,
 )
 
@@ -25,15 +29,22 @@ data class DriverUiState(
  * Состояние кабинета водителя.
  *
  * Данные опрашиваются периодически, так как сервер считает «светофор»
- * и время исполнения на каждый запрос.
+ * и время исполнения на каждый запрос. Сведения о технике водителя
+ * подгружаются один раз (не в цикле опроса).
  */
-class DriverViewModel(private val driverId: Int) : ViewModel() {
+class DriverViewModel(
+    private val driverId: Int,
+    private val tagsCall: suspend () -> List<DeviationTag> = { QwantApi.tags() },
+    private val driversCall: suspend () -> List<Driver> = { QwantApi.drivers() },
+    private val equipmentCall: suspend () -> List<Equipment> = { QwantApi.equipment() },
+) : ViewModel() {
 
     private val _state = MutableStateFlow(DriverUiState())
     val state: StateFlow<DriverUiState> = _state.asStateFlow()
 
     init {
         loadTags()
+        loadEquipment()
     }
 
     fun refresh() {
@@ -70,8 +81,23 @@ class DriverViewModel(private val driverId: Int) : ViewModel() {
 
     private fun loadTags() {
         viewModelScope.launch {
-            runCatching { QwantApi.tags() }
+            runCatching { tagsCall() }
                 .onSuccess { tags -> _state.update { it.copy(tags = tags) } }
+        }
+    }
+
+    /**
+     * Техника водителя: по [driverId] находим привязку к технике, затем саму
+     * технику (модель и наработку в моточасах) — для карточки «Машина».
+     */
+    private fun loadEquipment() {
+        viewModelScope.launch {
+            runCatching {
+                val equipmentId = driversCall().firstOrNull { it.id == driverId }?.equipmentId
+                equipmentId?.let { id -> equipmentCall().firstOrNull { it.id == id } }
+            }.onSuccess { equipment ->
+                if (equipment != null) _state.update { it.copy(equipment = equipment) }
+            }
         }
     }
 

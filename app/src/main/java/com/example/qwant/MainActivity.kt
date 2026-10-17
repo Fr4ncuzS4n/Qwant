@@ -110,6 +110,8 @@ private fun QwantApp() {
                         driverId = driverId,
                         driverName = current.driverName ?: current.name,
                         equipmentName = current.equipmentName,
+                        driverLogin = current.login,
+                        equipmentType = current.equipmentType,
                         onOpenOrder = { id -> navController.navigate(Routes.order(id)) },
                         onOpenScheme = { navController.navigate(Routes.SCHEME) },
                         onOpenGates = { navController.navigate(Routes.GATES) },

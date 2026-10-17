@@ -1,6 +1,7 @@
 package com.example.qwant.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +34,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.qwant.R
+import com.example.qwant.data.Building
+import com.example.qwant.data.EquipmentType
 import com.example.qwant.data.OrderStatus
 import com.example.qwant.data.OrderType
 import com.example.qwant.data.Urgency
@@ -93,6 +97,14 @@ fun orderStatusTitle(status: String): String = when (status) {
     OrderStatus.DONE -> stringResource(R.string.status_done)
     OrderStatus.CANCELLED -> stringResource(R.string.status_cancelled)
     else -> stringResource(R.string.status_new)
+}
+
+/** Русское название типа техники: МРГ / МПК. */
+@Composable
+fun equipmentTypeTitle(type: String?): String = when (type) {
+    EquipmentType.MRG -> stringResource(R.string.equipment_type_mrg)
+    EquipmentType.MPK -> stringResource(R.string.equipment_type_mpk)
+    else -> type.orEmpty()
 }
 
 @Composable
@@ -222,6 +234,45 @@ fun ErrorBox(message: String, onRetry: (() -> Unit)?, modifier: Modifier = Modif
         )
         if (onRetry != null) {
             Button(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+        }
+    }
+}
+
+/**
+ * Выбор корпуса цеха: чипы «Корпус N · количество электролизёров».
+ * Используется на экране схемы и при постановке заявки (диспетчер выбирает,
+ * в какой корпус отправить водителя).
+ */
+@Composable
+fun BuildingPicker(
+    title: String,
+    buildings: List<Building>,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SectionCard(title = title, modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            buildings.forEach { building ->
+                FilterChip(
+                    selected = building.id == selectedId,
+                    onClick = { onSelect(building.id) },
+                    label = {
+                        Text(
+                            stringResource(
+                                R.string.scheme_building_chip,
+                                building.id,
+                                building.electrolyzerCount,
+                            )
+                        )
+                    },
+                )
+            }
         }
     }
 }

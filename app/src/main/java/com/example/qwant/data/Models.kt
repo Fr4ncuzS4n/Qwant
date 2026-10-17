@@ -42,6 +42,12 @@ object Role {
     const val DISPATCHER = "DISPATCHER"
 }
 
+/** Типы техники (`GET /api/equipment`), совпадают с константами сервера. */
+object EquipmentType {
+    const val MRG = "MRG" // машина раздачи глинозёма
+    const val MPK = "MPK" // машина пробойки корки
+}
+
 /** Авторизованный пользователь (`POST /api/auth/login`). */
 @Serializable
 data class UserAccount(

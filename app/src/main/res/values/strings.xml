@@ -50,6 +50,17 @@
     <string name="driver_no_active_order">Активных заявок нет</string>
     <string name="driver_new_orders">Новые заявки</string>
     <string name="driver_no_new_orders">Новых заявок нет</string>
+    <string name="driver_profile_title">Водитель</string>
+    <string name="driver_role">Роль</string>
+    <string name="role_driver">Водитель</string>
+    <string name="driver_login">Логин</string>
+    <string name="driver_equipment_title">Машина</string>
+    <string name="driver_no_equipment">Техника не назначена</string>
+    <string name="equipment_type">Тип</string>
+    <string name="equipment_model">Модель</string>
+    <string name="equipment_motohours">Наработка</string>
+    <string name="equipment_type_mrg">МРГ — машина раздачи глинозёма</string>
+    <string name="equipment_type_mpk">МПК — машина пробойки корки</string>
 
     <!-- Заявки -->
     <string name="order_id">Заявка №%1$d</string>
@@ -106,9 +117,10 @@
 
     <!-- Создание заявки -->
     <string name="create_order_title">Новая заявка</string>
-    <string name="create_order_subtitle">Тип заявки и электролизёр на схеме корпуса</string>
+    <string name="create_order_subtitle">Корпус, тип заявки и электролизёр на схеме</string>
+    <string name="create_order_building">Корпус для отправки водителя</string>
     <string name="create_order_electrolyzer">Электролизёр на схеме</string>
-    <string name="create_order_selected">Выбран электролизёр №%1$d</string>
+    <string name="create_order_selected">Выбран электролизёр №%1$d · корпус %2$s</string>
     <string name="create_order_select_hint">Выберите электролизёр на схеме</string>
     <string name="create_order_description">Описание</string>
     <string name="create_order_requested_by">Заказчик</string>

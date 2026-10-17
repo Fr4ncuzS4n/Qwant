@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,11 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.qwant.R
-import com.example.qwant.data.Building
 import com.example.qwant.data.DEFAULT_BUILDING
 import com.example.qwant.data.Gate
 import com.example.qwant.data.Scheme
 import com.example.qwant.data.ZoneKind
+import com.example.qwant.ui.BuildingPicker
 import com.example.qwant.ui.ErrorBox
 import com.example.qwant.ui.HallLayout
 import com.example.qwant.ui.HallSchemeCanvas
@@ -95,6 +94,7 @@ fun SchemeScreen(
             // Выбор корпуса доступен всегда, в том числе пока грузится схема.
             if (state.buildings.size > 1) {
                 BuildingPicker(
+                    title = stringResource(R.string.scheme_building_title),
                     buildings = state.buildings,
                     selectedId = state.buildingId,
                     onSelect = viewModel::selectBuilding,
@@ -128,38 +128,6 @@ fun SchemeScreen(
                 )
 
                 else -> LoadingBox(Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-/** Выбор корпуса цеха: чипы «Корпус N · количество электролизёров». */
-@Composable
-private fun BuildingPicker(
-    buildings: List<Building>,
-    selectedId: String?,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SectionCard(title = stringResource(R.string.scheme_building_title), modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            buildings.forEach { building ->
-                FilterChip(
-                    selected = building.id == selectedId,
-                    onClick = { onSelect(building.id) },
-                    label = {
-                        Text(
-                            stringResource(
-                                R.string.scheme_building_chip,
-                                building.id,
-                                building.electrolyzerCount,
-                            )
-                        )
-                    },
-                )
             }
         }
     }

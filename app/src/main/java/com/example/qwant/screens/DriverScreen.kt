@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -19,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,18 +31,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.qwant.R
+import com.example.qwant.data.Equipment
 import com.example.qwant.data.Order
 import com.example.qwant.ui.ErrorBox
+import com.example.qwant.ui.InfoRow
 import com.example.qwant.ui.LoadingBox
 import com.example.qwant.ui.OrderCard
 import com.example.qwant.ui.QwantTopBar
 import com.example.qwant.ui.SectionCard
+import com.example.qwant.ui.asMotohours
+import com.example.qwant.ui.equipmentTypeTitle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -50,6 +57,9 @@ import kotlinx.coroutines.launch
  * Ключевой UX кейса: минимум действий —
  * 1) крупное уведомление о новой заявке + кнопка «Взять в работу»;
  * 2) по завершении — кнопка «Выполнено» (при отклонении — один тап по тегу).
+ *
+ * Сверху — акцентные карточки «Водитель» и «Машина» (какая техника закреплена
+ * и её наработка), затем список заявок.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +72,8 @@ fun DriverScreen(
     onOpenGates: () -> Unit,
     onOpenStats: () -> Unit,
     onLogout: () -> Unit,
+    driverLogin: String = "",
+    equipmentType: String? = null,
     viewModel: DriverViewModel = viewModel(key = "driver-$driverId") { DriverViewModel(driverId) },
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -84,7 +96,6 @@ fun DriverScreen(
         topBar = {
             QwantTopBar(
                 title = stringResource(R.string.driver_cabinet_title),
-                subtitle = listOfNotNull(driverName, equipmentName).joinToString(" · "),
                 actions = {
                     TextButton(onClick = onLogout) {
                         Text(stringResource(R.string.logout))
@@ -110,6 +121,16 @@ fun DriverScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                item(key = "driver-profile") {
+                    DriverProfileCards(
+                        driverName = driverName,
+                        driverLogin = driverLogin,
+                        equipmentName = equipmentName,
+                        equipmentType = equipmentType,
+                        equipment = state.equipment,
+                    )
+                }
+
                 item {
                     Text(
                         text = stringResource(R.string.driver_my_order),
@@ -250,6 +271,90 @@ fun DriverScreen(
                     }
                 },
             )
+        }
+    }
+}
+
+/**
+ * Акцентные карточки сведений о водителе и его технике — наверху списка заявок.
+ * Машина показывается по данным сессии, а при наличии — с моделью и наработкой
+ * (моточасами) из [equipment].
+ */
+@Composable
+private fun DriverProfileCards(
+    driverName: String,
+    driverLogin: String,
+    equipmentName: String?,
+    equipmentType: String?,
+    equipment: Equipment?,
+) {
+    val machineName = equipment?.name ?: equipmentName
+    val machineType = equipment?.type ?: equipmentType
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        ProfileCard(
+            label = stringResource(R.string.driver_profile_title),
+            title = driverName,
+            accent = MaterialTheme.colorScheme.primary,
+            rows = listOfNotNull(
+                stringResource(R.string.driver_role) to stringResource(R.string.role_driver),
+                driverLogin.takeIf { it.isNotBlank() }
+                    ?.let { stringResource(R.string.driver_login) to it },
+            ),
+        )
+
+        ProfileCard(
+            label = stringResource(R.string.driver_equipment_title),
+            title = machineName ?: stringResource(R.string.driver_no_equipment),
+            accent = MaterialTheme.colorScheme.secondary,
+            rows = listOfNotNull(
+                machineType?.takeIf { it.isNotBlank() }?.let {
+                    stringResource(R.string.equipment_type) to equipmentTypeTitle(it)
+                },
+                equipment?.model?.takeIf { it.isNotBlank() }?.let {
+                    stringResource(R.string.equipment_model) to it
+                },
+                equipment?.motohours?.let {
+                    stringResource(R.string.equipment_motohours) to
+                        stringResource(R.string.stats_motohours_short, it.asMotohours())
+                },
+            ),
+        )
+    }
+}
+
+/** Карточка «подпись-акцент + крупное значение + строки сведений». */
+@Composable
+private fun ProfileCard(
+    label: String,
+    title: String,
+    accent: Color,
+    rows: List<Pair<String, String>>,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = accent.copy(alpha = 0.14f),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = label.uppercase(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = accent,
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            rows.forEach { (rowLabel, rowValue) -> InfoRow(rowLabel, rowValue) }
         }
     }
 }

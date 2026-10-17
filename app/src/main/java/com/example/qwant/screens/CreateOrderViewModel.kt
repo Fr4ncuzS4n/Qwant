@@ -2,6 +2,7 @@ package com.example.qwant.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.qwant.data.Building
 import com.example.qwant.data.Order
 import com.example.qwant.data.OrderType
 import com.example.qwant.data.QwantApi
@@ -16,6 +17,10 @@ import kotlinx.coroutines.launch
 data class CreateOrderUiState(
     val loading: Boolean = true,
     val error: String? = null,
+    /** Список корпусов цеха: диспетчер выбирает, в какой корпус отправить водителя. */
+    val buildings: List<Building> = emptyList(),
+    /** Идентификатор выбранного корпуса. */
+    val buildingId: String? = null,
     val scheme: Scheme? = null,
     /** Видимый фрагмент корпуса при выборе электролизёра. */
     val fragment: SchemeFragment? = null,
@@ -24,10 +29,24 @@ data class CreateOrderUiState(
     val description: String = "",
     val requestedBy: String = "Диспетчер",
     val submitting: Boolean = false,
-)
+) {
+    /** Выбранный корпус (для подписи выбранного электролизёра). */
+    val building: Building? get() = buildings.firstOrNull { it.id == buildingId }
+}
 
-/** Создание заявки диспетчером: тип + электролизёр на схеме корпуса. */
-class CreateOrderViewModel(requesterName: String = "") : ViewModel() {
+/**
+ * Создание заявки диспетчером: **выбор корпуса** (куда отправить водителя),
+ * тип заявки и электролизёр на схеме выбранного корпуса.
+ *
+ * Вызовы API вынесены в параметры конструктора — ViewModel тестируется без сети
+ * (см. `CreateOrderViewModelTest`).
+ */
+class CreateOrderViewModel(
+    requesterName: String = "",
+    private val buildingsCall: suspend () -> List<Building> = { QwantApi.buildings() },
+    private val schemeCall: suspend (String) -> Scheme = { QwantApi.scheme(it) },
+    private val createCall: suspend (QwantApi.CreateOrderRequest) -> Order = { QwantApi.createOrder(it) },
+) : ViewModel() {
 
     private val _state = MutableStateFlow(
         CreateOrderUiState(
@@ -40,11 +59,20 @@ class CreateOrderViewModel(requesterName: String = "") : ViewModel() {
         load()
     }
 
+    /** Загрузка списка корпусов и схемы корпуса по умолчанию. */
     fun load() {
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            runCatching { QwantApi.scheme() }
-                .onSuccess { scheme -> _state.update { it.copy(loading = false, scheme = scheme) } }
+            runCatching { buildingsCall() }
+                .onSuccess { buildings ->
+                    val id = chooseBuilding(buildings)
+                    _state.update { it.copy(buildings = buildings, buildingId = id) }
+                    if (id == null) {
+                        _state.update { it.copy(loading = false) }
+                    } else {
+                        loadScheme(id)
+                    }
+                }
                 .onFailure { throwable ->
                     _state.update {
                         it.copy(loading = false, error = throwable.message ?: "network")
@@ -52,6 +80,48 @@ class CreateOrderViewModel(requesterName: String = "") : ViewModel() {
                 }
         }
     }
+
+    /** Смена корпуса: сбрасываем выбранный электролизёр и грузим схему корпуса. */
+    fun selectBuilding(id: String) {
+        if (id == _state.value.buildingId) return
+        _state.update {
+            it.copy(
+                buildingId = id,
+                scheme = null,
+                fragment = null,
+                electrolyzerId = null,
+                loading = true,
+                error = null,
+            )
+        }
+        loadScheme(id)
+    }
+
+    private fun loadScheme(id: String) {
+        viewModelScope.launch {
+            runCatching { schemeCall(id) }
+                .onSuccess { scheme ->
+                    _state.update {
+                        if (it.buildingId == id) it.copy(loading = false, scheme = scheme) else it
+                    }
+                }
+                .onFailure { throwable ->
+                    _state.update {
+                        if (it.buildingId == id) {
+                            it.copy(loading = false, error = throwable.message ?: "network")
+                        } else {
+                            it
+                        }
+                    }
+                }
+        }
+    }
+
+    /** Ранее выбранный корпус, иначе корпус по умолчанию, иначе первый. */
+    private fun chooseBuilding(buildings: List<Building>): String? =
+        _state.value.buildingId?.takeIf { current -> buildings.any { it.id == current } }
+            ?: buildings.firstOrNull { it.isDefault }?.id
+            ?: buildings.firstOrNull()?.id
 
     fun showFragment(fragment: SchemeFragment) {
         _state.update { it.copy(fragment = fragment) }
@@ -85,7 +155,7 @@ class CreateOrderViewModel(requesterName: String = "") : ViewModel() {
 
         viewModelScope.launch {
             val result = runCatching {
-                QwantApi.createOrder(
+                createCall(
                     QwantApi.CreateOrderRequest(
                         type = current.type,
                         electrolyzerId = electrolyzerId,
