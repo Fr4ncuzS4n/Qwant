@@ -44,6 +44,46 @@ class SchemeLayoutTest {
         assertEquals(3, layout.colsPerView)
     }
 
+    // ------------------------------------------------------- масштаб на экране
+
+    @Test
+    fun `electrolyzer cell is never smaller than the minimum size`() {
+        val layout = HallLayout.of(scheme(rows = 5, perRow = 30), HallFormat.PHONE)
+        val view = layout.viewBox(layout.fullFragment())
+
+        // узкий экран телефона: корпус не влезает — схема держит минимальную ячейку
+        val unit = layout.unitDp(availableWidthDp = 360f, viewWidth = view.w)
+
+        assertEquals(HallLayout.MIN_CELL_DP, unit, 0.001f)
+        assertEquals(HallLayout.MIN_CELL_DP, unit * HallLayout.CELL_W, 0.001f)
+        // ≈100 px на телефоне с плотностью 2 px/dp — по ней попадает палец
+        assertEquals(100f, unit * HallLayout.CELL_W * 2f, 0.001f)
+    }
+
+    @Test
+    fun `a small hall is stretched to the available width`() {
+        val layout = HallLayout.of(scheme(rows = 1, perRow = 2), HallFormat.TABLET)
+        val view = layout.viewBox(layout.fullFragment())
+        val unit = layout.unitDp(availableWidthDp = 360f, viewWidth = view.w)
+
+        // корпус уже экрана: ячейки крупнее минимальной, схема занимает всю ширину
+        assertTrue(unit > HallLayout.MIN_CELL_DP)
+        assertEquals(360f, unit * view.w, 0.001f)
+    }
+
+    @Test
+    fun `unit never drops below the cell minimum for any fragment`() {
+        val layout = HallLayout.of(scheme(rows = 5, perRow = 30), HallFormat.PHONE)
+
+        (1..5).forEach { row ->
+            (1..30 step 7).forEach { position ->
+                val view = layout.viewBox(layout.fragmentAround(row, position))
+                val unit = layout.unitDp(availableWidthDp = 220f, viewWidth = view.w)
+                assertTrue(unit * HallLayout.CELL_W >= HallLayout.MIN_CELL_DP - 0.001f)
+            }
+        }
+    }
+
     @Test
     fun `fragment never shows all rows of a big hall`() {
         val layout = HallLayout.of(scheme(rows = 5), HallFormat.TABLET)

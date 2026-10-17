@@ -47,14 +47,10 @@ import com.example.qwant.ui.theme.SignalGreen
 import com.example.qwant.ui.theme.ZoneDanger
 import com.example.qwant.ui.theme.ZoneDeadEnd
 
-/** Минимальный размер условного метра схемы, dp: ниже него схема прокручивается. */
-private const val SCHEME_MIN_UNIT_DP = 26f
-
 /**
- * Схема корпуса, вписанная в доступную ширину, но **не мельче**
- * [SCHEME_MIN_UNIT_DP] на условный метр: на узких экранах (телефон) схема не
- * сжимается, а прокручивается по горизонтали. Само рисование — в
- * [HallSchemeDrawing].
+ * Схема корпуса, вписанная в доступную ширину, но **не мельче** ячейки
+ * [HallLayout.MIN_CELL_DP]: на узких экранах (телефон) схема не сжимается,
+ * а прокручивается по горизонтали. Само рисование — в [HallSchemeDrawing].
  */
 @Composable
 fun HallSchemeCanvas(
@@ -68,7 +64,7 @@ fun HallSchemeCanvas(
 ) {
     val view = layout.viewBox(fragment)
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val unit = maxOf(maxWidth / view.w, SCHEME_MIN_UNIT_DP.dp)
+        val unit = layout.unitDp(maxWidth.value, view.w).dp
         Row(modifier = Modifier.horizontalScroll(rememberScrollState())) {
             HallSchemeDrawing(
                 scheme = scheme,
