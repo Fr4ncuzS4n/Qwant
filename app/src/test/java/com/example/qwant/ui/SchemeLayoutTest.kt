@@ -15,6 +15,11 @@ import org.junit.Test
  */
 class SchemeLayoutTest {
 
+    private companion object {
+        /** Типичная плотность телефона, px на dp (320 dpi). */
+        const val DENSITY_320 = 2f
+    }
+
     private fun scheme(rows: Int = 5, perRow: Int = 30) = Scheme(
         building = "4",
         rows = rows,
@@ -57,7 +62,7 @@ class SchemeLayoutTest {
         assertEquals(HallLayout.MIN_CELL_DP, unit, 0.001f)
         assertEquals(HallLayout.MIN_CELL_DP, unit * HallLayout.CELL_W, 0.001f)
         // ≈100 px на телефоне с плотностью 2 px/dp — по ней попадает палец
-        assertEquals(100f, unit * HallLayout.CELL_W * 2f, 0.001f)
+        assertEquals(100f, unit * HallLayout.CELL_W * DENSITY_320, 0.001f)
     }
 
     @Test
@@ -117,6 +122,26 @@ class SchemeLayoutTest {
         // проход заметно шире служебного зазора и не уже дороги вдоль стены
         assertTrue(HallLayout.BLOCK_GAP > HallLayout.CELL_GAP)
         assertTrue(HallLayout.BLOCK_GAP >= HallLayout.SIDE_LANE)
+    }
+
+    @Test
+    fun `passage is narrower than the electrolyzer itself`() {
+        // электролизёр — крупный агрегат: в плане он шире, чем проезд между соседями
+        assertTrue(HallLayout.BLOCK_GAP < HallLayout.CELL_W)
+        // при этом проезд шире служебного зазора и равен дороге вдоль стены
+        assertEquals(HallLayout.SIDE_LANE, HallLayout.BLOCK_GAP, 0.001f)
+    }
+
+    @Test
+    fun `electrolyzer is a big enough touch target`() {
+        // 50 dp ≈ 100 px на плотности 320 — по ячейке уверенно попадает палец
+        val layout = HallLayout.of(scheme(), HallFormat.PHONE)
+        val fullView = layout.viewBox(layout.fullFragment())
+
+        val unit = layout.unitDp(availableWidthDp = 360f, viewWidth = fullView.w)
+        val cellPx = unit * HallLayout.CELL_W * DENSITY_320
+
+        assertTrue(cellPx >= 96f)
     }
 
     @Test
