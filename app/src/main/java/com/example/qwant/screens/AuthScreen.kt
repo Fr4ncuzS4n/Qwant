@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -91,6 +92,9 @@ fun AuthScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
+                // Клавиатура: экран не «проваливается» под неё — область прокрутки
+                // заканчивается над клавиатурой (edge-to-edge + adjustResize).
+                .imePadding()
                 .verticalScroll(rememberScrollState()),
         ) {
             BrandHeader()

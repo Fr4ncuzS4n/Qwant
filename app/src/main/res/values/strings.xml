@@ -124,7 +124,6 @@
     <string name="scheme_summary">Корпус %1$s: электролизёров %2$d · линий %3$d · в половине %4$d · в линии %5$d</string>
     <string name="scheme_gates_title">Ворота корпуса</string>
     <string name="scheme_plan_title">Корпус целиком</string>
-    <string name="scheme_full_note">Показан весь корпус: %1$d электролизёров</string>
     <string name="scheme_lane_turn">Дорога вдоль стены для выезда к воротам</string>
     <string name="scheme_lane_side">Дорога вдоль стены (выезд к воротам)</string>
     <string name="scheme_lane_aisle">Центральная дорога (разворот к электролизёрам)</string>

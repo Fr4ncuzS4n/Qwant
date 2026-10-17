@@ -56,10 +56,9 @@ import com.example.qwant.ui.theme.ZoneDeadEnd
 /**
  * Схема корпуса. Сверху — выбор корпуса (если корпусов несколько), ниже —
  * **весь корпус целиком**: все ряды и электролизёры (каждый стоит отдельно,
- * между соседями — проход для техники), проезды между рядами, дороги вдоль
- * боковых стен, широкая полоса разворота сверху и снизу и стены корпуса
- * с единственным входом (слева или справа); отмечены опасные зоны, тупики и
- * ворота.
+ * между соседями — проезд для техники), центральная дорога между линиями,
+ * дороги вдоль стен и стены корпуса с единственным входом (слева или справа);
+ * отмечены опасные зоны, тупики и ворота.
  *
  * Ячейка электролизёра — не мельче [HallLayout.MIN_CELL_DP] (≈100 px на
  * плотности 320), поэтому широкий корпус на телефоне **прокручивается по
@@ -216,11 +215,6 @@ private fun SchemeCard(
             selectedId = selectedElectrolyzerId,
             onElectrolyzerTap = onSelectElectrolyzer,
             onGateTap = onToggleGate,
-        )
-        Text(
-            text = stringResource(R.string.scheme_full_note, scheme.electrolyzerCount),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

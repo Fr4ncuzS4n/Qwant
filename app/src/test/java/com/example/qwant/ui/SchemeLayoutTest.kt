@@ -119,7 +119,7 @@ class SchemeLayoutTest {
         val firstOfNext = layout.cellBox(1, HallLayout.BLOCK_SIZE + 1)
 
         assertEquals(HallLayout.BLOCK_GAP, firstOfNext.x - lastOfBlock.right, 0.001f)
-        // проход заметно шире служебного зазора и не уже дороги вдоль стены
+        // проезд заметно шире служебного зазора и не уже дороги вдоль стены
         assertTrue(HallLayout.BLOCK_GAP > HallLayout.CELL_GAP)
         assertTrue(HallLayout.BLOCK_GAP >= HallLayout.SIDE_LANE)
     }
@@ -128,8 +128,16 @@ class SchemeLayoutTest {
     fun `passage is narrower than the electrolyzer itself`() {
         // электролизёр — крупный агрегат: в плане он шире, чем проезд между соседями
         assertTrue(HallLayout.BLOCK_GAP < HallLayout.CELL_W)
-        // при этом проезд шире служебного зазора и равен дороге вдоль стены
-        assertEquals(HallLayout.SIDE_LANE, HallLayout.BLOCK_GAP, 0.001f)
+    }
+
+    @Test
+    fun `wall roads are narrow service strips`() {
+        // дороги вдоль стен — узкие полосы для выезда к воротам: уже проезда
+        // техники между электролизёрами
+        assertTrue(HallLayout.SIDE_LANE < HallLayout.BLOCK_GAP)
+        assertTrue(HallLayout.TURN_LANE < HallLayout.AISLE_H)
+        // торцевая дорога не уже боковой
+        assertTrue(HallLayout.TURN_LANE >= HallLayout.SIDE_LANE)
     }
 
     @Test
@@ -202,7 +210,7 @@ class SchemeLayoutTest {
     }
 
     @Test
-    fun `wide turn lanes run along the top and the bottom of the house`() {
+    fun `turn lanes run along the top and the bottom of the house`() {
         val layout = HallLayout.of(scheme(), HallFormat.PHONE)
         val (top, bottom) = layout.turnLanes()
 
